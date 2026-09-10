@@ -9,6 +9,7 @@ create table if not exists services (
   name text not null,
   price integer not null,          -- price in RUB
   duration_minutes integer not null default 30,
+  image_url text,                  -- e.g. /images/services/mens-haircut.png
   sort_order integer not null default 0,
   is_active boolean not null default true,
   created_at timestamptz not null default now()
@@ -106,14 +107,14 @@ create policy "Public can read active masters"
   using (is_active = true);
 
 -- ========== SEED DATA ==========
-insert into services (name, price, duration_minutes, sort_order) values
-  ('Мужская стрижка', 1000, 60, 1),
-  ('Детская (до 10 лет)', 800, 45, 2),
-  ('Стрижка машинкой', 800, 30, 3),
-  ('Оформление бороды', 600, 30, 4),
-  ('Окантовка', 300, 15, 5),
-  ('Укладка', 300, 15, 6),
-  ('Hair tattoo', 300, 20, 7)
+insert into services (name, price, duration_minutes, image_url, sort_order) values
+  ('Мужская стрижка', 1000, 60, '/images/services/mens-haircut.png', 1),
+  ('Детская (до 10 лет)', 800, 45, '/images/services/kids-haircut.png', 2),
+  ('Стрижка машинкой', 800, 30, '/images/services/machine-haircut.png', 3),
+  ('Оформление бороды', 600, 30, '/images/services/beard-styling.png', 4),
+  ('Окантовка', 300, 15, null, 5),
+  ('Укладка', 300, 15, null, 6),
+  ('Hair tattoo', 300, 20, null, 7)
 on conflict do nothing;
 
 insert into masters (name, sort_order) values
