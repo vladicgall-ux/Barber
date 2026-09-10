@@ -35,7 +35,7 @@ export default function Home() {
   const [result, setResult] = useState(null); // { ok: true } | { ok: false, error }
   const [showAdmin, setShowAdmin] = useState(false);
 
-  const { user, codeState, requestLoginCode } = useAuth();
+  const { user, codeState, requestLoginCode, vkDebug } = useAuth();
 
   useEffect(() => {
     const p = initPlatform();
@@ -196,7 +196,7 @@ export default function Home() {
                 }}
               />
             ) : (
-              <AuthGate user={user} codeState={codeState} onRequestCode={requestLoginCode} />
+              <AuthGate user={user} codeState={codeState} onRequestCode={requestLoginCode} vkDebug={vkDebug} />
             )}
             {result && !result.ok && (
               <div className="mt-3 text-red-400 text-sm text-center">{result.error}</div>

@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 // Shown instead of the booking form whenever the visitor isn't signed in,
 // or is signed in but hasn't confirmed a phone / provided a name yet.
-export default function AuthGate({ user, codeState, onRequestCode }) {
+export default function AuthGate({ user, codeState, onRequestCode, vkDebug }) {
   if (!user) {
     return (
       <div className="bg-charcoal border border-white/10 rounded-xl p-5 space-y-4 text-center">
@@ -11,6 +11,12 @@ export default function AuthGate({ user, codeState, onRequestCode }) {
           Внутри Telegram, MAX или VK вход выполняется автоматически. В обычном браузере
           получите код и отправьте его в один из чатов ниже.
         </p>
+
+        {vkDebug && (
+          <pre className="text-left text-[10px] text-yellow-400/80 bg-black/30 rounded-lg p-2 overflow-x-auto whitespace-pre-wrap break-all">
+            VK debug: {JSON.stringify(vkDebug, null, 2)}
+          </pre>
+        )}
 
         {!codeState && (
           <button
