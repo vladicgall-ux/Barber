@@ -5,10 +5,28 @@
 html, body {
   background-color: #141414;
   color: #f2f2f2;
+  overscroll-behavior-y: none;
 }
 
 * {
   -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+/* Respect the iPhone notch/Dynamic Island and the Android/iOS gesture bar
+   when the app runs standalone (added to the home screen). */
+body {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+input,
+select,
+textarea,
+button {
+  font-size: 16px; /* prevents iOS Safari from auto-zooming on focus */
 }
 
 ::-webkit-scrollbar {
