@@ -9,18 +9,26 @@ export default async function handler(req, res) {
   }
 
   const { masterId, date } = req.query;
-  if (!masterId || !date) {
+  if (!masterId || !date || !/^[0-9a-f-]{36}$/i.test(masterId)) {
     return res.status(400).json({ error: 'masterId and date are required' });
   }
 
-  const { data, error } = await supabaseAdmin
-    .from('appointments')
-    .select('appointment_time')
-    .eq('master_id', masterId)
-    .eq('appointment_date', date)
-    .eq('status', 'confirmed');
+  const [{ data, error }, { data: closures, error: closuresErr }] = await Promise.all([
+    supabaseAdmin
+      .from('appointments')
+      .select('appointment_time')
+      .eq('master_id', masterId)
+      .eq('appointment_date', date)
+      .eq('status', 'confirmed'),
+    supabaseAdmin.from('closed_dates').select('master_id').eq('date', date).or(`master_id.is.null,master_id.eq.${masterId}`),
+  ]);
 
   if (error) return res.status(500).json({ error: error.message });
+  if (closuresErr) return res.status(500).json({ error: closuresErr.message });
+
+  if (closures && closures.length > 0) {
+    return res.status(200).json({ slots: ALL_SLOTS.map((time) => ({ time, available: false })), closed: true });
+  }
 
   const bookedTimes = new Set(
     data.map((row) => row.appointment_time.slice(0, 5)) // "08:00:00" -> "08:00"
@@ -34,5 +42,5 @@ export default async function handler(req, res) {
     available: !bookedTimes.has(time) && (!isToday || time > shopNow.time),
   }));
 
-  return res.status(200).json({ slots });
+  return res.status(200).json({ slots, closed: false });
 }

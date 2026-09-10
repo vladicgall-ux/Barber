@@ -86,6 +86,24 @@ create unique index if not exists uniq_active_slot
 create index if not exists idx_appointments_date_master
   on appointments (appointment_date, master_id);
 
+-- ========== CLOSED DATES (admin-set days off) ==========
+create table if not exists closed_dates (
+  id uuid primary key default gen_random_uuid(),
+  master_id uuid references masters(id) on delete cascade, -- null = whole shop closed
+  date date not null,
+  reason text,
+  created_at timestamptz not null default now()
+);
+
+-- One shop-wide closure per date, one per-master closure per (date, master).
+create unique index if not exists uniq_closed_date_shop
+  on closed_dates (date)
+  where (master_id is null);
+
+create unique index if not exists uniq_closed_date_master
+  on closed_dates (date, master_id)
+  where (master_id is not null);
+
 -- ========== ROW LEVEL SECURITY ==========
 -- The app talks to Supabase only from server-side API routes using the
 -- service role key, so RLS can stay strict (deny-all to anon/public).
@@ -94,6 +112,7 @@ alter table masters enable row level security;
 alter table appointments enable row level security;
 alter table users enable row level security;
 alter table auth_codes enable row level security;
+alter table closed_dates enable row level security;
 
 -- Allow public (anon) read-only access to services & masters so the
 -- client can optionally fetch them directly if desired. Appointments are
@@ -105,6 +124,10 @@ create policy "Public can read active services"
 create policy "Public can read active masters"
   on masters for select
   using (is_active = true);
+
+create policy "Public can read closed dates"
+  on closed_dates for select
+  using (true);
 
 -- ========== SEED DATA ==========
 insert into services (name, price, duration_minutes, image_url, sort_order) values

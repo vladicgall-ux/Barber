@@ -25,7 +25,8 @@ Barber/
 │   ├── AdminPanel.js         # админ-панель, встроенная прямо в приложение
 │   ├── AuthGate.js           # экран входа/подтверждения телефона перед записью
 │   ├── BookingForm.js        # форма имени/телефона + сводка заказа
-│   ├── Calendar.js           # интерактивный календарь
+│   ├── Calendar.js           # интерактивный календарь (учитывает выходные дни)
+│   ├── ClosedDatesManager.js # управление выходными днями (в админ-панели)
 │   ├── MasterSelect.js       # выбор мастера (Вадим / Марсель)
 │   ├── ServiceList.js        # список услуг с ценами
 │   └── TimeSlotGrid.js       # сетка времени (Утро/День/Вечер)
@@ -56,6 +57,7 @@ Barber/
 │       ├── services.js               # GET  список услуг
 │       ├── masters.js                # GET  список мастеров
 │       ├── availability.js           # GET  занятость слотов на дату/мастера
+│       ├── closed-dates.js           # GET  закрытые даты для мастера (публично)
 │       ├── appointments/create.js    # POST создание записи (требует активного пользователя)
 │       ├── auth/
 │       │   ├── telegram.js           # POST вход по X-Telegram-Init-Data
@@ -73,7 +75,8 @@ Barber/
 │       └── admin/
 │           ├── appointments.js       # GET  список записей (только для ADMIN_IDS)
 │           ├── confirm.js            # POST подтвердить запись + уведомить клиента
-│           └── cancel.js             # POST отмена записи (слот освобождается)
+│           ├── cancel.js             # POST отмена записи (слот освобождается)
+│           └── closed-dates.js       # GET/POST/DELETE выходные дни (весь барбершоп/мастер)
 ├── styles/globals.css
 ├── supabase/schema.sql        # SQL для создания таблиц в Supabase
 ├── .env.example
@@ -89,7 +92,7 @@ Barber/
 1. Создайте проект на [supabase.com](https://supabase.com).
 2. Откройте **SQL Editor** и выполните весь файл [`supabase/schema.sql`](./supabase/schema.sql).
    Он создаст таблицы `services`, `masters`, `appointments`, `users`, `auth_codes`,
-   индексы, политики RLS и добавит начальные данные (7 услуг, 2 мастера).
+   `closed_dates`, индексы, политики RLS и добавит начальные данные (7 услуг, 2 мастера).
 3. В **Project Settings → API** скопируйте:
    - `Project URL` → `NEXT_PUBLIC_SUPABASE_URL`
    - `anon public` ключ → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
@@ -285,6 +288,16 @@ Telegram/MAX id перечислен в `ADMIN_IDS`.
 - Кнопка **«Отменить запись»** переводит запись в статус `cancelled` —
   слот немедленно становится доступен для новой записи (проверяется
   через `GET /api/availability`, которую вызывает клиентское приложение).
+- Блок **«Выходные дни»** (`components/ClosedDatesManager.js`) наверху
+  панели — админ выбирает дату и либо весь барбершоп, либо одного мастера
+  (например, отпуск), и закрывает её. Закрытые даты хранятся в таблице
+  `closed_dates` (`master_id = null` — закрыт весь барбершоп для всех
+  мастеров; иначе — только для одного). Клиентский календарь
+  (`components/Calendar.js`) сразу показывает такие дни зачёркнутыми и
+  недоступными для выбора (`GET /api/closed-dates?masterId=...`), а
+  `POST /api/appointments/create` и `GET /api/availability` отдельно
+  перепроверяют это на сервере — обойти закрытие через прямой запрос к API
+  тоже нельзя.
 
 ## 10. Напоминание клиенту за час до записи
 

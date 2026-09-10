@@ -29,6 +29,7 @@ export default function Home() {
   const [time, setTime] = useState(null);
   const [slots, setSlots] = useState([]);
   const [slotsLoading, setSlotsLoading] = useState(false);
+  const [closedDates, setClosedDates] = useState([]);
 
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null); // { ok: true } | { ok: false, error }
@@ -43,6 +44,16 @@ export default function Home() {
     fetch('/api/services').then((r) => r.json()).then((d) => setServices(d.services || []));
     fetch('/api/masters').then((r) => r.json()).then((d) => setMasters(d.masters || []));
   }, []);
+
+  useEffect(() => {
+    if (!master) {
+      setClosedDates([]);
+      return;
+    }
+    fetch(`/api/closed-dates?masterId=${master.id}`)
+      .then((r) => r.json())
+      .then((d) => setClosedDates(d.dates || []));
+  }, [master]);
 
   useEffect(() => {
     if (!master || !date) {
@@ -157,7 +168,7 @@ export default function Home() {
 
         {step === 2 && (
           <div className="space-y-5">
-            <Calendar selectedDate={date} onSelect={setDate} />
+            <Calendar selectedDate={date} onSelect={setDate} closedDates={closedDates} />
             <TimeSlotGrid slots={slots} selectedTime={time} onSelect={setTime} loading={slotsLoading} />
             <button
               type="button"

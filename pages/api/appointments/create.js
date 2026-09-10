@@ -20,6 +20,9 @@ export default async function handler(req, res) {
   if (!masterId || !serviceId || !date || !time || !clientName || !clientPhone) {
     return res.status(400).json({ error: 'Все поля обязательны для заполнения' });
   }
+  if (!/^[0-9a-f-]{36}$/i.test(masterId)) {
+    return res.status(400).json({ error: 'Некорректный мастер' });
+  }
 
   if (String(clientName).trim().length < 2) {
     return res.status(400).json({ error: 'Некорректное имя' });
@@ -32,6 +35,16 @@ export default async function handler(req, res) {
   const shopNow = getShopNow();
   if (date < shopNow.date || (date === shopNow.date && time <= shopNow.time)) {
     return res.status(400).json({ error: 'Это время уже прошло. Пожалуйста, выберите другое.' });
+  }
+
+  const { data: closures, error: closuresErr } = await supabaseAdmin
+    .from('closed_dates')
+    .select('id')
+    .eq('date', date)
+    .or(`master_id.is.null,master_id.eq.${masterId}`);
+  if (closuresErr) return res.status(500).json({ error: closuresErr.message });
+  if (closures && closures.length > 0) {
+    return res.status(400).json({ error: 'В этот день барбершоп не работает. Пожалуйста, выберите другую дату.' });
   }
 
   // Fetch master & service names for the notification.

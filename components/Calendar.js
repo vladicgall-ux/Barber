@@ -13,7 +13,8 @@ function toISODate(date) {
   return `${y}-${m}-${d}`;
 }
 
-export default function Calendar({ selectedDate, onSelect }) {
+export default function Calendar({ selectedDate, onSelect, closedDates = [] }) {
+  const closedSet = useMemo(() => new Set(closedDates), [closedDates]);
   const today = useMemo(() => {
     const t = new Date();
     t.setHours(0, 0, 0, 0);
@@ -82,7 +83,8 @@ export default function Calendar({ selectedDate, onSelect }) {
           const iso = toISODate(day);
           const isPast = day < today;
           const isTooFar = day > maxBookingDate;
-          const disabled = isPast || isTooFar;
+          const isClosed = closedSet.has(iso);
+          const disabled = isPast || isTooFar || isClosed;
           const isSelected = selectedDate === iso;
           const isToday = toISODate(today) === iso;
 
@@ -92,8 +94,11 @@ export default function Calendar({ selectedDate, onSelect }) {
               type="button"
               disabled={disabled}
               onClick={() => onSelect(iso)}
+              title={isClosed ? 'Барбершоп не работает в этот день' : undefined}
               className={`aspect-square rounded-lg text-sm flex items-center justify-center transition-all ${
-                disabled
+                isClosed
+                  ? 'text-red-400/40 line-through cursor-not-allowed'
+                  : disabled
                   ? 'text-white/20 cursor-not-allowed'
                   : isSelected
                   ? 'bg-white text-graphite font-bold'

@@ -1,0 +1,126 @@
+import { useEffect, useState } from 'react';
+
+// Lets the admin close specific calendar dates — either for the whole
+// barbershop or just one master — so clients can't book on days off.
+export default function ClosedDatesManager({ masters }) {
+  const [closedDates, setClosedDates] = useState([]);
+  const [date, setDate] = useState('');
+  const [masterId, setMasterId] = useState(''); // '' = whole shop
+  const [reason, setReason] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  async function load() {
+    setLoading(true);
+    const res = await fetch('/api/admin/closed-dates');
+    const data = await res.json();
+    if (res.ok) setClosedDates(data.closedDates || []);
+    setLoading(false);
+  }
+
+  async function handleAdd(e) {
+    e.preventDefault();
+    setError('');
+    if (!date) return;
+
+    const res = await fetch('/api/admin/closed-dates', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date, masterId: masterId || null, reason: reason.trim() || null }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setError(data.error || 'Не удалось закрыть дату');
+      return;
+    }
+    setDate('');
+    setReason('');
+    load();
+  }
+
+  async function handleRemove(id) {
+    setError('');
+    const res = await fetch('/api/admin/closed-dates', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setError(data.error || 'Не удалось открыть дату');
+      return;
+    }
+    load();
+  }
+
+  return (
+    <div className="bg-charcoal border border-white/10 rounded-xl p-4 mb-4">
+      <h3 className="font-bold mb-3">Выходные дни</h3>
+
+      <form onSubmit={handleAdd} className="flex flex-wrap gap-2 mb-3">
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          required
+          className="bg-graphite border border-white/10 rounded-lg px-3 py-2 text-white text-sm"
+        />
+        <select
+          value={masterId}
+          onChange={(e) => setMasterId(e.target.value)}
+          className="bg-graphite border border-white/10 rounded-lg px-3 py-2 text-white text-sm"
+        >
+          <option value="">Весь барбершоп</option>
+          {masters.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.name}
+            </option>
+          ))}
+        </select>
+        <input
+          type="text"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="Причина (необязательно)"
+          className="bg-graphite border border-white/10 rounded-lg px-3 py-2 text-white text-sm flex-1 min-w-[140px]"
+        />
+        <button type="submit" className="bg-white text-graphite font-bold rounded-lg px-4 py-2 text-sm">
+          Закрыть дату
+        </button>
+      </form>
+
+      {error && <div className="text-red-400 text-sm mb-2">{error}</div>}
+
+      <div className="space-y-1.5">
+        {loading && <div className="text-white/40 text-sm">Загрузка...</div>}
+        {!loading && closedDates.length === 0 && (
+          <div className="text-white/40 text-sm">Выходных дней не назначено</div>
+        )}
+        {!loading &&
+          closedDates.map((c) => (
+            <div
+              key={c.id}
+              className="flex items-center justify-between bg-graphite border border-white/10 rounded-lg px-3 py-2 text-sm"
+            >
+              <div>
+                <span className="font-medium">{c.date}</span>
+                <span className="text-white/40"> · {c.masters?.name || 'Весь барбершоп'}</span>
+                {c.reason && <span className="text-white/30"> · {c.reason}</span>}
+              </div>
+              <button
+                type="button"
+                onClick={() => handleRemove(c.id)}
+                className="text-xs text-white/50 hover:text-white"
+              >
+                Открыть
+              </button>
+            </div>
+          ))}
+      </div>
+    </div>
+  );
+}
