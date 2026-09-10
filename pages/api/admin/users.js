@@ -13,7 +13,7 @@ export default async function handler(req, res) {
     const { data, error, count } = await supabaseAdmin
       .from('users')
       .select(
-        `id, telegram_id, max_id, phone, phone_confirmed, first_name, last_name,
+        `id, telegram_id, max_id, vk_id, phone, phone_confirmed, first_name, last_name,
          is_banned, is_admin, admin_master_id, created_at,
          masters ( id, name )`,
         { count: 'exact' }
@@ -42,7 +42,7 @@ export default async function handler(req, res) {
       .update(patch)
       .eq('id', userId)
       .select(
-        `id, telegram_id, max_id, phone, phone_confirmed, first_name, last_name,
+        `id, telegram_id, max_id, vk_id, phone, phone_confirmed, first_name, last_name,
          is_banned, is_admin, admin_master_id, created_at,
          masters ( id, name )`
       )

@@ -45,7 +45,18 @@ export default function UsersManager({ masters }) {
 
   function displayName(u) {
     const name = [u.first_name, u.last_name].filter(Boolean).join(' ');
-    return name || (u.telegram_id ? `Telegram #${u.telegram_id}` : u.max_id ? `MAX #${u.max_id}` : 'Без имени');
+    if (name) return name;
+    if (u.telegram_id) return `Telegram #${u.telegram_id}`;
+    if (u.max_id) return `MAX #${u.max_id}`;
+    if (u.vk_id) return `VK #${u.vk_id}`;
+    return 'Без имени';
+  }
+
+  function platformBadge(u) {
+    if (u.telegram_id) return { label: 'Telegram', classes: 'bg-sky-500/10 text-sky-400' };
+    if (u.max_id) return { label: 'MAX', classes: 'bg-white/10 text-white/70' };
+    if (u.vk_id) return { label: 'VK', classes: 'bg-blue-500/10 text-blue-400' };
+    return null;
   }
 
   return (
@@ -66,11 +77,18 @@ export default function UsersManager({ masters }) {
           {!loading && users.length === 0 && <div className="text-white/40 text-sm">Пользователей нет</div>}
 
           {!loading &&
-            users.map((u) => (
+            users.map((u) => {
+              const platform = platformBadge(u);
+              return (
               <div key={u.id} className="bg-graphite border border-white/10 rounded-lg px-3 py-2.5 text-sm">
                 <div className="flex items-center justify-between gap-2 mb-1.5">
                   <div className="font-medium truncate">{displayName(u)}</div>
                   <div className="flex gap-1.5 shrink-0">
+                    {platform && (
+                      <span className={`px-2 py-0.5 rounded-full text-xs ${platform.classes}`}>
+                        {platform.label}
+                      </span>
+                    )}
                     {u.is_admin && (
                       <span className="px-2 py-0.5 rounded-full text-xs bg-green-500/10 text-green-400">
                         Админ
@@ -88,6 +106,7 @@ export default function UsersManager({ masters }) {
                   {u.phone || 'телефон не подтверждён'}
                   {u.telegram_id && ` · Telegram #${u.telegram_id}`}
                   {u.max_id && ` · MAX #${u.max_id}`}
+                  {u.vk_id && ` · VK #${u.vk_id}`}
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
@@ -131,7 +150,8 @@ export default function UsersManager({ masters }) {
                   </button>
                 </div>
               </div>
-            ))}
+              );
+            })}
         </div>
       )}
     </div>

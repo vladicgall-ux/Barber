@@ -2,6 +2,11 @@ import { useEffect, useState } from 'react';
 import ClosedDatesManager from './ClosedDatesManager';
 import UsersManager from './UsersManager';
 
+const SOURCE_LABELS = { telegram: 'Telegram', max: 'MAX', vk: 'VK', web: 'Браузер' };
+function sourceLabel(source) {
+  return SOURCE_LABELS[source] || 'Браузер';
+}
+
 // Embedded directly in the main app — no separate route, no password.
 // Only ever rendered when the caller has already confirmed user.isAdmin.
 export default function AdminPanel({ masters, currentUser, onClose }) {
@@ -138,6 +143,7 @@ export default function AdminPanel({ masters, currentUser, onClose }) {
                 <div className="text-white/40">
                   {a.services?.name} — {a.masters?.name}
                 </div>
+                <div className="text-white/30 text-xs">{sourceLabel(a.source)}</div>
               </div>
               {a.status === 'confirmed' && (
                 <div className="mt-3 flex gap-2">

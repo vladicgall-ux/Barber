@@ -93,6 +93,7 @@ export default async function handler(req, res) {
     masterName: master.name,
     date: appointment.appointment_date,
     time: String(appointment.appointment_time).slice(0, 5),
+    source: appointment.source,
   };
 
   // Vercel serverless functions can freeze right after the response is
