@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '../../../lib/supabaseAdmin';
-import { notifyTelegramAdmin, notifyMasterAdmins, notifyVkCommunity } from '../../../lib/notify';
+import { notifyTelegramAdmin, notifyVkAdmin, notifyMasterAdmins } from '../../../lib/notify';
 import { getSessionUser } from '../../../lib/auth/session';
 import { getActiveUserStatus } from '../../../lib/auth/requireActiveUser';
 import { getShopNow } from '../../../lib/timeSlots';
@@ -101,8 +101,8 @@ export default async function handler(req, res) {
   // responding.
   await Promise.all([
     notifyTelegramAdmin(payload),
+    notifyVkAdmin(payload),
     notifyMasterAdmins(payload),
-    notifyVkCommunity(payload),
   ]).catch((e) => console.error('Notification error', e));
 
   return res.status(201).json({ appointment });

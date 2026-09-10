@@ -25,7 +25,7 @@ export default async function handler(req, res) {
       `id, appointment_date, appointment_time,
        masters ( name ),
        services ( name ),
-       users ( telegram_id, max_id )`
+       users ( telegram_id, max_id, vk_id )`
     )
     .eq('status', 'confirmed')
     .eq('reminder_sent', false);
@@ -43,15 +43,15 @@ export default async function handler(req, res) {
   let sent = 0;
   for (const appointment of due) {
     const user = appointment.users;
-    if (user && (user.telegram_id || user.max_id)) {
+    if (user && (user.telegram_id || user.max_id || user.vk_id)) {
       const text =
         `Напоминание: через час у вас запись в BLACK BEARD ✂️\n\n` +
         `Услуга: ${appointment.services?.name}\n` +
         `Мастер: ${appointment.masters?.name}\n` +
         `Время: ${String(appointment.appointment_time).slice(0, 5)}`;
 
-      await notifyClient({ telegramId: user.telegram_id, maxId: user.max_id, text }).catch((e) =>
-        console.error('Reminder notify error', e)
+      await notifyClient({ telegramId: user.telegram_id, maxId: user.max_id, vkId: user.vk_id, text }).catch(
+        (e) => console.error('Reminder notify error', e)
       );
       sent += 1;
     }
