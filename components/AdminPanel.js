@@ -47,6 +47,21 @@ export default function AdminPanel({ masters, onClose }) {
     loadAppointments();
   }
 
+  async function handleConfirm(appointmentId) {
+    setActionError('');
+    const res = await fetch('/api/admin/confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ appointmentId }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setActionError(data.error || 'Не удалось подтвердить запись');
+      return;
+    }
+    loadAppointments();
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
@@ -92,17 +107,26 @@ export default function AdminPanel({ masters, onClose }) {
         {!loading &&
           appointments.map((a) => (
             <div key={a.id} className="bg-charcoal border border-white/10 rounded-xl p-4 text-sm">
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between mb-2 gap-2">
                 <span className="font-semibold">
                   {a.appointment_date} · {String(a.appointment_time).slice(0, 5)}
                 </span>
-                <span
-                  className={`px-2 py-1 rounded-full text-xs ${
-                    a.status === 'confirmed' ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'
-                  }`}
-                >
-                  {a.status === 'confirmed' ? 'Активна' : 'Отменена'}
-                </span>
+                <div className="flex gap-1.5">
+                  {a.status === 'confirmed' && (
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs whitespace-nowrap ${
+                        a.admin_confirmed ? 'bg-green-500/10 text-green-400' : 'bg-yellow-500/10 text-yellow-400'
+                      }`}
+                    >
+                      {a.admin_confirmed ? 'Подтверждена' : 'Ожидает подтверждения'}
+                    </span>
+                  )}
+                  {a.status === 'cancelled' && (
+                    <span className="px-2 py-1 rounded-full text-xs whitespace-nowrap bg-red-500/10 text-red-400">
+                      Отменена
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="text-white/70 space-y-0.5">
                 <div>{a.client_name} · {a.client_phone}</div>
@@ -111,13 +135,24 @@ export default function AdminPanel({ masters, onClose }) {
                 </div>
               </div>
               {a.status === 'confirmed' && (
-                <button
-                  type="button"
-                  onClick={() => handleCancel(a.id)}
-                  className="mt-3 text-xs bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg px-3 py-1.5"
-                >
-                  Отменить запись
-                </button>
+                <div className="mt-3 flex gap-2">
+                  {!a.admin_confirmed && (
+                    <button
+                      type="button"
+                      onClick={() => handleConfirm(a.id)}
+                      className="text-xs bg-green-500/10 text-green-400 hover:bg-green-500/20 rounded-lg px-3 py-1.5"
+                    >
+                      Подтвердить
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => handleCancel(a.id)}
+                    className="text-xs bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg px-3 py-1.5"
+                  >
+                    Отменить запись
+                  </button>
+                </div>
               )}
             </div>
           ))}

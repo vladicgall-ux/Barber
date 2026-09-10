@@ -72,6 +72,8 @@ create table if not exists appointments (
   appointment_time time not null,       -- e.g. 08:00:00
   status text not null default 'confirmed' check (status in ('confirmed', 'cancelled')),
   source text default 'web',            -- 'telegram' | 'max' | 'web'
+  admin_confirmed boolean not null default false, -- barber has acknowledged the booking
+  reminder_sent boolean not null default false,    -- 1-hour-before reminder already sent
   created_at timestamptz not null default now()
 );
 

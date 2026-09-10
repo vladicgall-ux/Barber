@@ -16,7 +16,7 @@ export default async function handler(req, res) {
   let query = supabaseAdmin
     .from('appointments')
     .select(
-      `id, client_name, client_phone, appointment_date, appointment_time, status, source, created_at,
+      `id, client_name, client_phone, appointment_date, appointment_time, status, source, created_at, admin_confirmed,
        masters ( id, name ),
        services ( id, name, price )`
     )

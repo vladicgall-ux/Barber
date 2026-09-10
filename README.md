@@ -68,8 +68,11 @@ Barber/
 │       ├── bot/
 │       │   ├── telegram-webhook.js   # POST webhook Telegram-бота
 │       │   └── max-webhook.js        # POST webhook MAX-бота
+│       ├── cron/
+│       │   └── send-reminders.js     # POST напоминание клиенту за час (вызывается pg_cron)
 │       └── admin/
 │           ├── appointments.js       # GET  список записей (только для ADMIN_IDS)
+│           ├── confirm.js            # POST подтвердить запись + уведомить клиента
 │           └── cancel.js             # POST отмена записи (слот освобождается)
 ├── styles/globals.css
 ├── supabase/schema.sql        # SQL для создания таблиц в Supabase
@@ -261,11 +264,51 @@ Telegram/MAX id перечислен в `ADMIN_IDS`.
   `isAdminUser()`).
 - Доступ к данным на сервере проверяет `lib/auth/requireAdmin.js`: сессия
   должна быть валидна, id — в `ADMIN_IDS`, пользователь не забанен.
-  Используется в `GET /api/admin/appointments` и `POST /api/admin/cancel`.
+  Используется в `GET /api/admin/appointments`, `POST /api/admin/cancel`
+  и `POST /api/admin/confirm`.
 - Таблица всех записей с фильтрами по дате и мастеру.
+- Кнопка **«Подтвердить»** (`POST /api/admin/confirm`) ставит
+  `admin_confirmed = true` и сразу отправляет клиенту сообщение в
+  Telegram/MAX: «Ваша запись в BLACK BEARD подтверждена ✅» с деталями
+  услуги, мастера, даты и времени. Пока запись не подтверждена, в списке
+  видна пометка «Ожидает подтверждения».
 - Кнопка **«Отменить запись»** переводит запись в статус `cancelled` —
   слот немедленно становится доступен для новой записи (проверяется
   через `GET /api/availability`, которую вызывает клиентское приложение).
+
+## 10. Напоминание клиенту за час до записи
+
+`POST /api/cron/send-reminders` (`pages/api/cron/send-reminders.js`)
+находит все записи со статусом `confirmed`, которые начинаются через
+50–65 минут и ещё не получили напоминание (`reminder_sent = false`),
+отправляет клиенту сообщение в Telegram/MAX и помечает `reminder_sent = true`,
+чтобы не отправить дважды. Эндпоинт защищён общим секретом
+(`CRON_SECRET`) в заголовке `Authorization: Bearer <секрет>` — вызывать его
+может только планировщик, не браузер.
+
+Планировщик — не Vercel Cron (на тарифе Hobby он ограничен одним запуском
+в сутки, чего недостаточно для проверки «через час»), а **`pg_cron` +
+`pg_net` прямо в Supabase**, не зависящие от тарифа Vercel:
+
+```sql
+create extension if not exists pg_cron;
+create extension if not exists pg_net;
+
+select cron.schedule(
+  'send-appointment-reminders',
+  '*/5 * * * *', -- каждые 5 минут
+  $$
+  select net.http_post(
+    url := 'https://<ваш-домен>/api/cron/send-reminders',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer <тот же CRON_SECRET>'
+    ),
+    body := '{}'::jsonb
+  );
+  $$
+);
+```
 
 Если `ADMIN_IDS` не задан или не содержит ваш id — кнопка «Админ-панель»
 не появится и запросы к `/api/admin/*` будут отклонены с 403.
