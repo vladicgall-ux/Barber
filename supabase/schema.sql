@@ -25,11 +25,12 @@ create table if not exists masters (
   created_at timestamptz not null default now()
 );
 
--- ========== USERS (authenticated via Telegram / MAX / code login) ==========
+-- ========== USERS (authenticated via Telegram / MAX / VK / code login) ==========
 create table if not exists users (
   id uuid primary key default gen_random_uuid(),
   telegram_id bigint unique,
   max_id bigint unique,
+  vk_id bigint unique,
   phone text,
   phone_confirmed boolean not null default false,
   first_name text,
@@ -39,10 +40,11 @@ create table if not exists users (
   admin_master_id uuid references masters(id) on delete set null, -- null = sees all masters' notifications
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  constraint users_have_an_identity check (telegram_id is not null or max_id is not null)
+  constraint users_have_an_identity check (telegram_id is not null or max_id is not null or vk_id is not null)
 );
 
 create index if not exists idx_users_telegram_id on users (telegram_id);
+create index if not exists idx_users_vk_id on users (vk_id);
 create index if not exists idx_users_is_admin on users (is_admin) where (is_admin = true);
 create index if not exists idx_users_max_id on users (max_id);
 

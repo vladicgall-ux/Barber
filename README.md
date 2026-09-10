@@ -34,7 +34,8 @@ Barber/
 ├── lib/
 │   ├── auth/
 │   │   ├── validateInitData.js   # проверка подписи Telegram/MAX initData (HMAC-SHA256)
-│   │   ├── upsertUser.js         # upsert пользователя по telegram_id/max_id
+│   │   ├── validateVkParams.js   # проверка подписи VK launch-параметров
+│   │   ├── upsertUser.js         # upsert пользователя по telegram_id/max_id/vk_id
 │   │   ├── session.js            # 30-дневная httpOnly/secure/sameSite=lax cookie-сессия
 │   │   ├── codes.js               # генерация 6-значного кода и pollToken
 │   │   ├── requireActiveUser.js   # правило "подтверждён телефон + указано имя" + права админа
@@ -44,9 +45,10 @@ Barber/
 │   │   ├── handleIncomingMessage.js  # общая логика диалога бота (код/телефон/имя)
 │   │   ├── telegramApi.js            # sendMessage + клавиатура "поделиться телефоном"
 │   │   └── maxApi.js                 # то же для MAX (см. примечание ниже)
+│   ├── closures.js           # логика "весь день / конкретное время закрыто"
 │   ├── notify.js             # отправка уведомлений в Telegram/VK
 │   ├── platform.js           # определение Telegram/MAX/VK/Web + haptics
-│   ├── useAuth.js            # клиентский хук: авто-вход в Telegram/MAX, код для браузера
+│   ├── useAuth.js            # клиентский хук: авто-вход в Telegram/MAX/VK, код для браузера
 │   ├── supabaseAdmin.js      # server-only клиент Supabase (service role)
 │   ├── supabaseClient.js     # публичный клиент Supabase (anon key)
 │   └── timeSlots.js          # генерация слотов 08:00–20:00 с шагом 1 час
@@ -63,6 +65,7 @@ Barber/
 │       ├── auth/
 │       │   ├── telegram.js           # POST вход по X-Telegram-Init-Data
 │       │   ├── max.js                # POST вход по X-Max-Init-Data
+│       │   ├── vk.js                 # POST вход по подписанным launch-параметрам VK
 │       │   ├── me.js                 # GET  текущий пользователь + его статус
 │       │   ├── logout.js             # POST выход
 │       │   └── code/
@@ -129,7 +132,8 @@ Barber/
 | `MAX_BOT_API_BASE` | обычно не нужно менять | нет |
 | `TELEGRAM_BOT_USERNAME` / `MAX_BOT_USERNAME` | имя бота без `@` | нет (для подсказки на экране кода) |
 | `TELEGRAM_WEBHOOK_SECRET` / `MAX_WEBHOOK_SECRET` | придумайте сами | да, для вебхуков ботов |
-| `ADMIN_IDS` | Telegram/MAX user id владельцев барбершопа | **да, иначе никто не увидит админ-панель** |
+| `VK_APP_SECRET` | VK Apps → ваше приложение → Настройки → «Защищённый ключ» | да, для входа через VK Mini App |
+| `ADMIN_IDS` | Telegram/MAX/VK user id владельцев барбершопа | **да, иначе никто не увидит админ-панель** |
 
 ## 4. Настройка Telegram Bot
 
@@ -153,11 +157,18 @@ Barber/
 
 1. Создайте Mini App в **VK Apps → Создать приложение**.
 2. Укажите базовый URL — адрес вашего деплоя на Vercel.
-3. (Опционально, уведомления в сообщество) В настройках сообщества создайте
+3. В настройках приложения скопируйте **«Защищённый ключ»** →
+   `VK_APP_SECRET` — без него вход через VK (раздел 6, канал 3) не заработает:
+   сервер не сможет проверить подпись launch-параметров.
+4. Чтобы `VKWebAppGetPhoneNumber` действительно возвращал номер, включите в
+   настройках приложения соответствующее разрешение (VK может потребовать
+   модерацию для доступа к телефону — без него вызов просто вернёт ошибку,
+   и пользователю останется подтвердить телефон через бота).
+5. (Опционально, уведомления в сообщество) В настройках сообщества создайте
    ключ доступа с правом `wall` и заполните `VK_GROUP_TOKEN` / `VK_GROUP_ID`.
-4. Приложение подключает `vk-bridge` и вызывает `VKWebAppInit` автоматически.
+6. Приложение подключает `vk-bridge` и вызывает `VKWebAppInit` автоматически.
 
-## 6. Авторизация пользователей (3 канала, одна база)
+## 6. Авторизация пользователей (4 канала, одна база)
 
 Реализована в `lib/auth/*`, `lib/bot/*`, `pages/api/auth/*`, `pages/api/bot/*`,
 `lib/useAuth.js` и `components/AuthGate.js`.
@@ -192,7 +203,36 @@ hash       = HMAC_SHA256(key=secret_key,   message=data_check_string)
 > (`lib/bot/maxApi.js`, `MAX_BOT_API_BASE`, по умолчанию `https://botapi.max.ru`).
 > Поправьте эти два места под актуальную документацию MAX перед продакшеном.
 
-### Канал 3 — обычный браузер (код в боте)
+### Канал 3 — VK Mini App
+
+VK не выдаёт единый подписанный блок вроде `initData` — вместо этого сам
+VK при открытии сайта добавляет в адресную строку подписанные launch-параметры
+(`vk_user_id`, `vk_app_id`, `sign`, ...). `lib/platform.js#getVkQueryString()`
+берёт их прямо из `window.location.search`, и `useAuth.js` при обнаружении
+платформы `vk` (`getPlatform()` смотрит на `vk_app_id` в URL) отправляет их на
+`POST /api/auth/vk`. Подпись проверяется по официальному алгоритму VK
+(`lib/auth/validateVkParams.js`):
+
+```
+sortedParams = все "vk_*" параметры, отсортированные по ключу, "key=value" через "&"
+sign         = base64url( HMAC_SHA256(key=VK_APP_SECRET, message=sortedParams) )
+```
+
+(base64url — обычный base64 с `+`→`-`, `/`→`_` и без хвостового `=`). Секрет
+`VK_APP_SECRET` — это «Защищённый ключ» приложения VK (Админка VK Apps →
+ваше приложение → Настройки). При успехе создаётся/обновляется пользователь
+по `vk_id` (`upsertUserByVkId`).
+
+Так как для VK нет бота, через который можно попросить телефон/имя (как у
+Telegram/MAX), при входе клиент дополнительно вызывает VK Bridge —
+`VKWebAppGetUserInfo` (имя/фамилия) и `VKWebAppGetPhoneNumber` (телефон, с
+согласия пользователя) — и передаёт их вместе с launch-параметрами; сервер
+сразу сохраняет их и, если пришёл телефон, ставит `phone_confirmed = true`
+(`lib/auth/upsertUser.js`). Если пользователь не даст доступ к телефону, для
+записи ему по-прежнему нужно будет подтвердить его через Telegram/MAX-бота —
+код для этого можно получить через Канал 4.
+
+### Канал 4 — обычный браузер (код в боте)
 
 1. `POST /api/auth/code/request` создаёт 6-значный код и случайный
    `pollToken` (известен только этому браузеру), код живёт 10 минут
