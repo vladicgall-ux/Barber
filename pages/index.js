@@ -189,6 +189,7 @@ export default function Home() {
               <BookingForm
                 submitting={submitting}
                 onSubmit={handleBookingSubmit}
+                user={user}
                 summary={{
                   serviceName: service?.name,
                   masterName: master?.name,

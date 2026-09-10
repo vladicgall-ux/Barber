@@ -1,8 +1,11 @@
 import { useState } from 'react';
 
-export default function BookingForm({ onSubmit, submitting, summary }) {
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
+export default function BookingForm({ onSubmit, submitting, summary, user }) {
+  // Telegram/MAX/VK already hand us a confirmed first + last name at login —
+  // no need to ask for it again, only the phone number.
+  const knownName = [user?.firstName, user?.lastName].filter(Boolean).join(' ');
+  const [name, setName] = useState(knownName);
+  const [phone, setPhone] = useState(user?.phone || '');
   const [error, setError] = useState('');
 
   function handleSubmit(e) {
@@ -45,15 +48,24 @@ export default function BookingForm({ onSubmit, submitting, summary }) {
         </div>
       )}
 
-      <div>
-        <label className="text-xs text-white/50 mb-1 block">Ваше имя</label>
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Иван"
-          className="w-full bg-charcoal border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-silver"
-        />
-      </div>
+      {knownName ? (
+        <div>
+          <label className="text-xs text-white/50 mb-1 block">Ваше имя</label>
+          <div className="w-full bg-charcoal border border-white/10 rounded-xl px-4 py-3 text-white/70">
+            {knownName}
+          </div>
+        </div>
+      ) : (
+        <div>
+          <label className="text-xs text-white/50 mb-1 block">Ваше имя</label>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Иван"
+            className="w-full bg-charcoal border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-silver"
+          />
+        </div>
+      )}
 
       <div>
         <label className="text-xs text-white/50 mb-1 block">Телефон</label>
