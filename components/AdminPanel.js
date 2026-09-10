@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 // Only ever rendered when the caller has already confirmed user.isAdmin.
 export default function AdminPanel({ masters, onClose }) {
   const [appointments, setAppointments] = useState([]);
-  const [filterDate, setFilterDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [filterDate, setFilterDate] = useState(''); // empty = show every date
   const [filterMaster, setFilterMaster] = useState('');
   const [loading, setLoading] = useState(false);
   const [actionError, setActionError] = useState('');
@@ -75,9 +75,11 @@ export default function AdminPanel({ masters, onClose }) {
             </option>
           ))}
         </select>
-        <button type="button" onClick={() => setFilterDate('')} className="text-sm text-white/50 hover:text-white px-2">
-          Сбросить дату
-        </button>
+        {filterDate && (
+          <button type="button" onClick={() => setFilterDate('')} className="text-sm text-white/50 hover:text-white px-2">
+            Показать все даты
+          </button>
+        )}
       </div>
 
       {actionError && <div className="text-red-400 text-sm mb-3">{actionError}</div>}
