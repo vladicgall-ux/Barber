@@ -3,11 +3,17 @@ import { ALL_SLOTS } from '../lib/timeSlots';
 
 // Lets the admin close a range of dates — either the whole day or just a
 // time window on each — for the whole barbershop or just one master.
-export default function ClosedDatesManager({ masters }) {
+//
+// A master-scoped admin (adminMasterId set) can only close days off for
+// their own master — the master picker is locked to that master instead
+// of offering "весь барбершоп" or other masters. The server enforces the
+// same restriction independently (pages/api/admin/closed-dates.js), so
+// this is a convenience, not the only guard.
+export default function ClosedDatesManager({ masters, adminMasterId }) {
   const [closedDates, setClosedDates] = useState([]);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [masterId, setMasterId] = useState(''); // '' = whole shop
+  const [masterId, setMasterId] = useState(adminMasterId || ''); // '' = whole shop
   const [startTime, setStartTime] = useState(''); // '' = whole day
   const [endTime, setEndTime] = useState('');
   const [reason, setReason] = useState('');
@@ -129,18 +135,24 @@ export default function ClosedDatesManager({ masters }) {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <select
-            value={masterId}
-            onChange={(e) => setMasterId(e.target.value)}
-            className="bg-graphite border border-white/10 rounded-lg px-3 py-2 text-white text-sm"
-          >
-            <option value="">Весь барбершоп</option>
-            {masters.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name}
-              </option>
-            ))}
-          </select>
+          {adminMasterId ? (
+            <div className="bg-graphite border border-white/10 rounded-lg px-3 py-2 text-white/60 text-sm">
+              Мастер: {masters.find((m) => m.id === adminMasterId)?.name || '—'}
+            </div>
+          ) : (
+            <select
+              value={masterId}
+              onChange={(e) => setMasterId(e.target.value)}
+              className="bg-graphite border border-white/10 rounded-lg px-3 py-2 text-white text-sm"
+            >
+              <option value="">Весь барбершоп</option>
+              {masters.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
+              ))}
+            </select>
+          )}
           <input
             type="text"
             value={reason}

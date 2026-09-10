@@ -4,7 +4,7 @@ import UsersManager from './UsersManager';
 
 // Embedded directly in the main app — no separate route, no password.
 // Only ever rendered when the caller has already confirmed user.isAdmin.
-export default function AdminPanel({ masters, onClose }) {
+export default function AdminPanel({ masters, currentUser, onClose }) {
   const [appointments, setAppointments] = useState([]);
   const [filterDate, setFilterDate] = useState(''); // empty = show every date
   const [filterMaster, setFilterMaster] = useState('');
@@ -74,7 +74,7 @@ export default function AdminPanel({ masters, onClose }) {
       </div>
 
       <UsersManager masters={masters} />
-      <ClosedDatesManager masters={masters} />
+      <ClosedDatesManager masters={masters} adminMasterId={currentUser?.adminMasterId} />
 
       <div className="flex flex-wrap gap-3 mb-4">
         <input

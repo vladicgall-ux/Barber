@@ -134,7 +134,7 @@ export default function Home() {
   if (showAdmin) {
     return (
       <Shell platform={platform} isAdmin={user?.isAdmin} onOpenAdmin={() => setShowAdmin(true)}>
-        <AdminPanel masters={masters} onClose={() => setShowAdmin(false)} />
+        <AdminPanel masters={masters} currentUser={user} onClose={() => setShowAdmin(false)} />
       </Shell>
     );
   }
