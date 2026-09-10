@@ -68,6 +68,7 @@ export default async function handler(req, res) {
   }
 
   const payload = {
+    appointmentId: appointment.id,
     clientName: appointment.client_name,
     clientPhone: appointment.client_phone,
     serviceName: service.name,
