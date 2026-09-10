@@ -6,6 +6,7 @@ import Calendar from '../components/Calendar';
 import TimeSlotGrid from '../components/TimeSlotGrid';
 import BookingForm from '../components/BookingForm';
 import AuthGate from '../components/AuthGate';
+import AdminPanel from '../components/AdminPanel';
 import { initPlatform, hapticSuccess } from '../lib/platform';
 import { useAuth } from '../lib/useAuth';
 
@@ -31,6 +32,7 @@ export default function Home() {
 
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null); // { ok: true } | { ok: false, error }
+  const [showAdmin, setShowAdmin] = useState(false);
 
   const { user, codeState, requestLoginCode } = useAuth();
 
@@ -118,8 +120,16 @@ export default function Home() {
     );
   }
 
+  if (showAdmin) {
+    return (
+      <Shell platform={platform} isAdmin={user?.isAdmin} onOpenAdmin={() => setShowAdmin(true)}>
+        <AdminPanel masters={masters} onClose={() => setShowAdmin(false)} />
+      </Shell>
+    );
+  }
+
   return (
-    <Shell platform={platform}>
+    <Shell platform={platform} isAdmin={user?.isAdmin} onOpenAdmin={() => setShowAdmin(true)}>
       <Stepper steps={STEPS} current={step} onSelect={goTo} />
 
       <div className="mt-5">
@@ -187,7 +197,7 @@ export default function Home() {
   );
 }
 
-function Shell({ children }) {
+function Shell({ children, isAdmin, onOpenAdmin }) {
   return (
     <div className="min-h-screen bg-graphite pb-10">
       <header className="relative h-56 sm:h-64 overflow-hidden border-b border-white/5">
@@ -204,6 +214,16 @@ function Shell({ children }) {
           <h1 className="text-2xl font-extrabold tracking-wide drop-shadow-lg">BLACK BEARD</h1>
           <p className="text-white/60 text-sm mt-1">Барбершоп · Кунашак</p>
         </div>
+
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={onOpenAdmin}
+            className="absolute top-4 right-4 bg-black/40 backdrop-blur border border-white/20 rounded-lg px-3 py-1.5 text-xs font-medium text-white hover:bg-black/60"
+          >
+            Админ-панель
+          </button>
+        )}
       </header>
       <main className="px-4 pt-5 max-w-md mx-auto">{children}</main>
     </div>

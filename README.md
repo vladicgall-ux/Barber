@@ -22,22 +22,22 @@
 ```
 Barber/
 ├── components/
+│   ├── AdminPanel.js         # админ-панель, встроенная прямо в приложение
+│   ├── AuthGate.js           # экран входа/подтверждения телефона перед записью
 │   ├── BookingForm.js        # форма имени/телефона + сводка заказа
 │   ├── Calendar.js           # интерактивный календарь
 │   ├── MasterSelect.js       # выбор мастера (Вадим / Марсель)
 │   ├── ServiceList.js        # список услуг с ценами
 │   └── TimeSlotGrid.js       # сетка времени (Утро/День/Вечер)
-├── components/
-│   └── AuthGate.js           # экран входа/подтверждения телефона перед записью
 ├── lib/
-│   ├── adminAuth.js          # подписанные cookie-сессии для /admin (пароль)
 │   ├── auth/
 │   │   ├── validateInitData.js   # проверка подписи Telegram/MAX initData (HMAC-SHA256)
 │   │   ├── upsertUser.js         # upsert пользователя по telegram_id/max_id
 │   │   ├── session.js            # 30-дневная httpOnly/secure/sameSite=lax cookie-сессия
 │   │   ├── codes.js               # генерация 6-значного кода и pollToken
 │   │   ├── requireActiveUser.js   # правило "подтверждён телефон + указано имя" + ADMIN_IDS
-│   │   └── publicUser.js          # безопасная проекция User для ответов API
+│   │   ├── requireAdmin.js        # проверка "сессия + id в ADMIN_IDS" для /api/admin/*
+│   │   └── publicUser.js          # безопасная проекция User для ответов API (+ isAdmin)
 │   ├── bot/
 │   │   ├── handleIncomingMessage.js  # общая логика диалога бота (код/телефон/имя)
 │   │   ├── telegramApi.js            # sendMessage + клавиатура "поделиться телефоном"
@@ -51,8 +51,7 @@ Barber/
 ├── pages/
 │   ├── _app.js
 │   ├── _document.js          # подключение Telegram/VK SDK
-│   ├── index.js              # главная страница клиента (шаги записи)
-│   ├── admin.js               # секретная админ-панель /admin
+│   ├── index.js              # главная страница клиента (шаги записи + встроенная админка)
 │   └── api/
 │       ├── services.js               # GET  список услуг
 │       ├── masters.js                # GET  список мастеров
@@ -70,9 +69,7 @@ Barber/
 │       │   ├── telegram-webhook.js   # POST webhook Telegram-бота
 │       │   └── max-webhook.js        # POST webhook MAX-бота
 │       └── admin/
-│           ├── login.js              # POST вход в админку по паролю
-│           ├── logout.js             # POST выход
-│           ├── appointments.js       # GET  список записей (с фильтрами)
+│           ├── appointments.js       # GET  список записей (только для ADMIN_IDS)
 │           └── cancel.js             # POST отмена записи (слот освобождается)
 ├── styles/globals.css
 ├── supabase/schema.sql        # SQL для создания таблиц в Supabase
@@ -115,8 +112,6 @@ Barber/
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase → Settings → API | да |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase → Settings → API | да |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Settings → API | да |
-| `ADMIN_PASSWORD` | придумайте сами | да |
-| `ADMIN_SESSION_SECRET` | `openssl rand -hex 32` | да |
 | `TELEGRAM_BOT_TOKEN` | @BotFather | да, для уведомлений и входа |
 | `TELEGRAM_ADMIN_CHAT_ID` | @userinfobot или `getUpdates` | да, для уведомлений |
 | `VK_GROUP_TOKEN` | VK → Управление сообществом → Работа с API → Ключи доступа | нет |
@@ -126,7 +121,7 @@ Barber/
 | `MAX_BOT_API_BASE` | обычно не нужно менять | нет |
 | `TELEGRAM_BOT_USERNAME` / `MAX_BOT_USERNAME` | имя бота без `@` | нет (для подсказки на экране кода) |
 | `TELEGRAM_WEBHOOK_SECRET` / `MAX_WEBHOOK_SECRET` | придумайте сами | да, для вебхуков ботов |
-| `ADMIN_IDS` | Telegram/MAX user id владельцев барбершопа | нет |
+| `ADMIN_IDS` | Telegram/MAX user id владельцев барбершопа | **да, иначе никто не увидит админ-панель** |
 
 ## 4. Настройка Telegram Bot
 
@@ -212,8 +207,8 @@ hash       = HMAC_SHA256(key=secret_key,   message=data_check_string)
 
 `lib/auth/session.js` — подписанная cookie `bb_session`
 (`HttpOnly; Secure; SameSite=Lax`), срок жизни 30 дней. Секрет —
-`AUTH_SESSION_SECRET`. Это отдельная сессия от `/admin`-панели, у которой
-свой пароль и cookie `bb_admin_session`.
+`AUTH_SESSION_SECRET`. Эта же сессия используется и для доступа к
+встроенной админ-панели (см. раздел 9) — отдельного пароля у неё нет.
 
 ### Уровень доступа requireActiveUser
 
@@ -250,14 +245,27 @@ cp .env.example .env.local   # заполните переменные
 npm run dev
 ```
 
-Откройте `http://localhost:3000` — клиентская запись, и
-`http://localhost:3000/admin` — админ-панель (пароль из `ADMIN_PASSWORD`).
+Откройте `http://localhost:3000` — там же, при входе под id из `ADMIN_IDS`,
+доступна и админ-панель (см. ниже).
 
 ## 9. Админ-панель
 
-- Вход по паролю (`ADMIN_PASSWORD`), сессия хранится в подписанном
-  HttpOnly cookie на 12 часов.
+Отдельной страницы `/admin` и пароля больше нет — панель встроена прямо в
+главное приложение (`components/AdminPanel.js`) и видна только тому, кто
+вошёл (через Telegram/MAX или код в браузере — см. раздел 6) и чей
+Telegram/MAX id перечислен в `ADMIN_IDS`.
+
+- Как только такой пользователь авторизован, в правом верхнем углу шапки
+  появляется кнопка **«Админ-панель»** (`pages/index.js`, проверка
+  `user.isAdmin` — вычисляется в `lib/auth/publicUser.js` через
+  `isAdminUser()`).
+- Доступ к данным на сервере проверяет `lib/auth/requireAdmin.js`: сессия
+  должна быть валидна, id — в `ADMIN_IDS`, пользователь не забанен.
+  Используется в `GET /api/admin/appointments` и `POST /api/admin/cancel`.
 - Таблица всех записей с фильтрами по дате и мастеру.
 - Кнопка **«Отменить запись»** переводит запись в статус `cancelled` —
   слот немедленно становится доступен для новой записи (проверяется
   через `GET /api/availability`, которую вызывает клиентское приложение).
+
+Если `ADMIN_IDS` не задан или не содержит ваш id — кнопка «Админ-панель»
+не появится и запросы к `/api/admin/*` будут отклонены с 403.

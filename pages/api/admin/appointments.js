@@ -1,13 +1,14 @@
 import { supabaseAdmin } from '../../../lib/supabaseAdmin';
-import { isValidSession } from '../../../lib/adminAuth';
+import { requireAdmin } from '../../../lib/auth/requireAdmin';
 
 // GET /api/admin/appointments?date=YYYY-MM-DD&masterId=...
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
-  if (!isValidSession(req)) {
-    return res.status(401).json({ error: 'Не авторизован' });
+  const admin = await requireAdmin(req);
+  if (!admin) {
+    return res.status(403).json({ error: 'Доступно только администратору' });
   }
 
   const { date, masterId } = req.query;
