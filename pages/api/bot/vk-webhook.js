@@ -2,6 +2,8 @@ import { confirmAppointment } from '../../../lib/appointments/confirmAppointment
 import { cancelAppointment } from '../../../lib/appointments/cancelAppointment';
 import { answerVkMessageEvent, clearVkMessageKeyboard } from '../../../lib/notify';
 import { isAdminByPlatformId } from '../../../lib/auth/requireActiveUser';
+import { makeVkSender } from '../../../lib/bot/vkApi';
+import { handleIncomingMessage } from '../../../lib/bot/handleIncomingMessage';
 
 // POST /api/bot/vk-webhook
 // Set as the community's Callback API server URL:
@@ -33,8 +35,30 @@ export default async function handler(req, res) {
     await handleMessageEvent(body.object || {}).catch((e) => console.error('VK message_event error', e));
   }
 
+  if (body.type === 'message_new') {
+    await handleMessageNew(body.object?.message || {}).catch((e) => console.error('VK message_new error', e));
+  }
+
   // VK requires a plain "ok" body for every event type it knows we handled.
   return res.status(200).end('ok');
+}
+
+// Handles a plain text message to the community — the browser "enter this
+// code" login flow (see lib/bot/handleIncomingMessage.js). VK has no
+// "share contact" button like Telegram/MAX, so phone confirmation for VK
+// users only happens through the Mini App (VKWebAppGetPhoneNumber).
+async function handleMessageNew(message) {
+  const peerId = message.peer_id;
+  const fromId = message.from_id;
+  if (!peerId || !fromId) return;
+
+  await handleIncomingMessage({
+    platform: 'vk',
+    platformUserId: fromId,
+    text: message.text,
+    send: makeVkSender(peerId),
+    requestContactKeyboard: () => undefined,
+  });
 }
 
 const CALLBACK_ACTIONS = {

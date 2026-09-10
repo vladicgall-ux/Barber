@@ -56,6 +56,7 @@ create table if not exists auth_codes (
   status text not null default 'pending' check (status in ('pending', 'claimed', 'expired')),
   telegram_id bigint,
   max_id bigint,
+  vk_id bigint,
   user_id uuid references users(id),
   expires_at timestamptz not null,
   created_at timestamptz not null default now()
