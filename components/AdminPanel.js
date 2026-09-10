@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import ClosedDatesManager from './ClosedDatesManager';
+import UsersManager from './UsersManager';
 
 // Embedded directly in the main app — no separate route, no password.
 // Only ever rendered when the caller has already confirmed user.isAdmin.
@@ -72,6 +73,7 @@ export default function AdminPanel({ masters, onClose }) {
         </button>
       </div>
 
+      <UsersManager masters={masters} />
       <ClosedDatesManager masters={masters} />
 
       <div className="flex flex-wrap gap-3 mb-4">

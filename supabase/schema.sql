@@ -35,12 +35,15 @@ create table if not exists users (
   first_name text,
   last_name text,
   is_banned boolean not null default false,
+  is_admin boolean not null default false,       -- persisted in DB, survives redeploys/restarts
+  admin_master_id uuid references masters(id) on delete set null, -- null = sees all masters' notifications
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint users_have_an_identity check (telegram_id is not null or max_id is not null)
 );
 
 create index if not exists idx_users_telegram_id on users (telegram_id);
+create index if not exists idx_users_is_admin on users (is_admin) where (is_admin = true);
 create index if not exists idx_users_max_id on users (max_id);
 
 -- ========== AUTH CODES (browser "enter code in the bot" login) ==========

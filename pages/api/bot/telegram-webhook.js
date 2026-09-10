@@ -7,7 +7,7 @@ import {
 } from '../../../lib/bot/telegramApi';
 import { confirmAppointment } from '../../../lib/appointments/confirmAppointment';
 import { cancelAppointment } from '../../../lib/appointments/cancelAppointment';
-import { isAdminId } from '../../../lib/auth/requireActiveUser';
+import { isAdminByPlatformId } from '../../../lib/auth/requireActiveUser';
 
 // POST /api/bot/telegram-webhook
 // Set with: https://api.telegram.org/bot<TOKEN>/setWebhook
@@ -76,7 +76,7 @@ async function handleCallbackQuery(callback) {
     return answerTelegramCallback(callback.id);
   }
 
-  if (!isAdminId(fromId)) {
+  if (!(await isAdminByPlatformId(fromId))) {
     return answerTelegramCallback(callback.id, 'Только администратор может управлять записями');
   }
 
