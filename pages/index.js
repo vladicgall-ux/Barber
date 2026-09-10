@@ -20,6 +20,7 @@ const STEPS = [
 export default function Home() {
   const [step, setStep] = useState(0);
   const [platform, setPlatform] = useState('web');
+  const [rawDebug, setRawDebug] = useState(null);
 
   const [services, setServices] = useState([]);
   const [masters, setMasters] = useState([]);
@@ -40,6 +41,7 @@ export default function Home() {
   useEffect(() => {
     const p = initPlatform();
     if (p) setPlatform(p);
+    setRawDebug({ platform: p, href: window.location.href, search: window.location.search });
 
     fetch('/api/services').then((r) => r.json()).then((d) => setServices(d.services || []));
     fetch('/api/masters').then((r) => r.json()).then((d) => setMasters(d.masters || []));
@@ -196,7 +198,13 @@ export default function Home() {
                 }}
               />
             ) : (
-              <AuthGate user={user} codeState={codeState} onRequestCode={requestLoginCode} vkDebug={vkDebug} />
+              <AuthGate
+                user={user}
+                codeState={codeState}
+                onRequestCode={requestLoginCode}
+                vkDebug={vkDebug}
+                rawDebug={rawDebug}
+              />
             )}
             {result && !result.ok && (
               <div className="mt-3 text-red-400 text-sm text-center">{result.error}</div>
