@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '../../lib/supabaseAdmin';
-import { ALL_SLOTS } from '../../lib/timeSlots';
+import { ALL_SLOTS, getShopNow } from '../../lib/timeSlots';
 
 // GET /api/availability?masterId=...&date=YYYY-MM-DD
 // Returns all slots + which ones are already booked (confirmed) for that master/date.
@@ -26,9 +26,12 @@ export default async function handler(req, res) {
     data.map((row) => row.appointment_time.slice(0, 5)) // "08:00:00" -> "08:00"
   );
 
+  const shopNow = getShopNow();
+  const isToday = date === shopNow.date;
+
   const slots = ALL_SLOTS.map((time) => ({
     time,
-    available: !bookedTimes.has(time),
+    available: !bookedTimes.has(time) && (!isToday || time > shopNow.time),
   }));
 
   return res.status(200).json({ slots });

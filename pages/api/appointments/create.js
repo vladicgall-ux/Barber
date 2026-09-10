@@ -2,6 +2,7 @@ import { supabaseAdmin } from '../../../lib/supabaseAdmin';
 import { notifyTelegramAdmin, notifyVkCommunity } from '../../../lib/notify';
 import { getSessionUser } from '../../../lib/auth/session';
 import { getActiveUserStatus } from '../../../lib/auth/requireActiveUser';
+import { getShopNow } from '../../../lib/timeSlots';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -26,6 +27,11 @@ export default async function handler(req, res) {
   const phoneDigits = String(clientPhone).replace(/\D/g, '');
   if (phoneDigits.length < 10) {
     return res.status(400).json({ error: 'Некорректный номер телефона' });
+  }
+
+  const shopNow = getShopNow();
+  if (date < shopNow.date || (date === shopNow.date && time <= shopNow.time)) {
+    return res.status(400).json({ error: 'Это время уже прошло. Пожалуйста, выберите другое.' });
   }
 
   // Fetch master & service names for the notification.
