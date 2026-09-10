@@ -60,17 +60,6 @@ export default function AuthGate({ user, codeState, onRequestCode, vkDebug, rawD
     );
   }
 
-  if (!user.phoneConfirmed) {
-    return (
-      <div className="bg-charcoal border border-white/10 rounded-xl p-5 text-center space-y-2">
-        <h3 className="font-bold">Подтвердите телефон</h3>
-        <p className="text-white/50 text-sm">
-          Откройте чат с нашим ботом и нажмите «Поделиться номером телефона», чтобы записаться на услугу.
-        </p>
-      </div>
-    );
-  }
-
   if (!user.firstName || !user.lastName) {
     return (
       <div className="bg-charcoal border border-white/10 rounded-xl p-5 text-center space-y-2">
