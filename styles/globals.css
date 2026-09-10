@@ -6,11 +6,13 @@ html, body {
   background-color: #141414;
   color: #f2f2f2;
   overscroll-behavior-y: none;
+  touch-action: pan-x pan-y;
 }
 
 * {
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
+  touch-action: manipulation; /* blocks double-tap-to-zoom */
 }
 
 /* Respect the iPhone notch/Dynamic Island and the Android/iOS gesture bar
