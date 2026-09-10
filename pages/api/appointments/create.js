@@ -1,9 +1,17 @@
 import { supabaseAdmin } from '../../../lib/supabaseAdmin';
 import { notifyTelegramAdmin, notifyVkCommunity } from '../../../lib/notify';
+import { getSessionUser } from '../../../lib/auth/session';
+import { getActiveUserStatus } from '../../../lib/auth/requireActiveUser';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const user = await getSessionUser(req);
+  const { active, reason } = getActiveUserStatus(user);
+  if (!active) {
+    return res.status(403).json({ error: activeErrorMessage(reason), reason });
   }
 
   const { masterId, serviceId, date, time, clientName, clientPhone, source } = req.body || {};
@@ -34,6 +42,7 @@ export default async function handler(req, res) {
     .insert({
       master_id: masterId,
       service_id: serviceId,
+      user_id: user.id,
       client_name: String(clientName).trim(),
       client_phone: String(clientPhone).trim(),
       appointment_date: date,
@@ -67,4 +76,19 @@ export default async function handler(req, res) {
   );
 
   return res.status(201).json({ appointment });
+}
+
+function activeErrorMessage(reason) {
+  switch (reason) {
+    case 'not_authenticated':
+      return 'Войдите в приложение, чтобы записаться на услугу.';
+    case 'banned':
+      return 'Ваш аккаунт заблокирован администратором.';
+    case 'phone_not_confirmed':
+      return 'Подтвердите номер телефона через бота, чтобы записаться.';
+    case 'name_missing':
+      return 'Укажите имя и фамилию через бота, чтобы записаться.';
+    default:
+      return 'Запись недоступна.';
+  }
 }

@@ -27,13 +27,27 @@ Barber/
 │   ├── MasterSelect.js       # выбор мастера (Вадим / Марсель)
 │   ├── ServiceList.js        # список услуг с ценами
 │   └── TimeSlotGrid.js       # сетка времени (Утро/День/Вечер)
+├── components/
+│   └── AuthGate.js           # экран входа/подтверждения телефона перед записью
 ├── lib/
-│   ├── adminAuth.js          # подписанные cookie-сессии для /admin
+│   ├── adminAuth.js          # подписанные cookie-сессии для /admin (пароль)
+│   ├── auth/
+│   │   ├── validateInitData.js   # проверка подписи Telegram/MAX initData (HMAC-SHA256)
+│   │   ├── upsertUser.js         # upsert пользователя по telegram_id/max_id
+│   │   ├── session.js            # 30-дневная httpOnly/secure/sameSite=lax cookie-сессия
+│   │   ├── codes.js               # генерация 6-значного кода и pollToken
+│   │   ├── requireActiveUser.js   # правило "подтверждён телефон + указано имя" + ADMIN_IDS
+│   │   └── publicUser.js          # безопасная проекция User для ответов API
+│   ├── bot/
+│   │   ├── handleIncomingMessage.js  # общая логика диалога бота (код/телефон/имя)
+│   │   ├── telegramApi.js            # sendMessage + клавиатура "поделиться телефоном"
+│   │   └── maxApi.js                 # то же для MAX (см. примечание ниже)
 │   ├── notify.js             # отправка уведомлений в Telegram/VK
-│   ├── platform.js           # определение Telegram/VK/Web + haptics
+│   ├── platform.js           # определение Telegram/MAX/VK/Web + haptics
+│   ├── useAuth.js            # клиентский хук: авто-вход в Telegram/MAX, код для браузера
 │   ├── supabaseAdmin.js      # server-only клиент Supabase (service role)
 │   ├── supabaseClient.js     # публичный клиент Supabase (anon key)
-│   └── timeSlots.js          # генерация слотов 08:00–20:00 с шагом 30 мин
+│   └── timeSlots.js          # генерация слотов 08:00–20:00 с шагом 1 час
 ├── pages/
 │   ├── _app.js
 │   ├── _document.js          # подключение Telegram/VK SDK
@@ -43,7 +57,18 @@ Barber/
 │       ├── services.js               # GET  список услуг
 │       ├── masters.js                # GET  список мастеров
 │       ├── availability.js           # GET  занятость слотов на дату/мастера
-│       ├── appointments/create.js    # POST создание записи + уведомления
+│       ├── appointments/create.js    # POST создание записи (требует активного пользователя)
+│       ├── auth/
+│       │   ├── telegram.js           # POST вход по X-Telegram-Init-Data
+│       │   ├── max.js                # POST вход по X-Max-Init-Data
+│       │   ├── me.js                 # GET  текущий пользователь + его статус
+│       │   ├── logout.js             # POST выход
+│       │   └── code/
+│       │       ├── request.js        # POST выдать 6-значный код + pollToken
+│       │       └── poll.js           # GET  браузер опрашивает статус кода
+│       ├── bot/
+│       │   ├── telegram-webhook.js   # POST webhook Telegram-бота
+│       │   └── max-webhook.js        # POST webhook MAX-бота
 │       └── admin/
 │           ├── login.js              # POST вход в админку по паролю
 │           ├── logout.js             # POST выход
@@ -63,8 +88,8 @@ Barber/
 
 1. Создайте проект на [supabase.com](https://supabase.com).
 2. Откройте **SQL Editor** и выполните весь файл [`supabase/schema.sql`](./supabase/schema.sql).
-   Он создаст таблицы `services`, `masters`, `appointments`, индексы,
-   политики RLS и добавит начальные данные (7 услуг, 2 мастера).
+   Он создаст таблицы `services`, `masters`, `appointments`, `users`, `auth_codes`,
+   индексы, политики RLS и добавит начальные данные (7 услуг, 2 мастера).
 3. В **Project Settings → API** скопируйте:
    - `Project URL` → `NEXT_PUBLIC_SUPABASE_URL`
    - `anon public` ключ → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
@@ -92,10 +117,16 @@ Barber/
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Settings → API | да |
 | `ADMIN_PASSWORD` | придумайте сами | да |
 | `ADMIN_SESSION_SECRET` | `openssl rand -hex 32` | да |
-| `TELEGRAM_BOT_TOKEN` | @BotFather | да, для уведомлений |
+| `TELEGRAM_BOT_TOKEN` | @BotFather | да, для уведомлений и входа |
 | `TELEGRAM_ADMIN_CHAT_ID` | @userinfobot или `getUpdates` | да, для уведомлений |
 | `VK_GROUP_TOKEN` | VK → Управление сообществом → Работа с API → Ключи доступа | нет |
 | `VK_GROUP_ID` | id сообщества ВКонтакте | нет |
+| `AUTH_SESSION_SECRET` | `openssl rand -hex 32` | да |
+| `MAX_BOT_TOKEN` | бот в MAX (аналог @BotFather) | да, для входа через MAX |
+| `MAX_BOT_API_BASE` | обычно не нужно менять | нет |
+| `TELEGRAM_BOT_USERNAME` / `MAX_BOT_USERNAME` | имя бота без `@` | нет (для подсказки на экране кода) |
+| `TELEGRAM_WEBHOOK_SECRET` / `MAX_WEBHOOK_SECRET` | придумайте сами | да, для вебхуков ботов |
+| `ADMIN_IDS` | Telegram/MAX user id владельцев барбершопа | нет |
 
 ## 4. Настройка Telegram Bot
 
@@ -108,6 +139,12 @@ Barber/
      URL вашего деплоя на Vercel (например `https://black-beard.vercel.app`).
 4. Приложение уже подключает `telegram-web-app.js` в `pages/_document.js`
    и вызывает `Telegram.WebApp.ready()/expand()` при загрузке (`lib/platform.js`).
+5. Зарегистрируйте вебхук для входа по коду и подтверждения телефона/имени:
+   ```
+   https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook
+     ?url=https://<ваш-домен>/api/bot/telegram-webhook
+     &secret_token=<TELEGRAM_WEBHOOK_SECRET>
+   ```
 
 ## 5. Настройка VK Mini App
 
@@ -117,7 +154,87 @@ Barber/
    ключ доступа с правом `wall` и заполните `VK_GROUP_TOKEN` / `VK_GROUP_ID`.
 4. Приложение подключает `vk-bridge` и вызывает `VKWebAppInit` автоматически.
 
-## 6. Деплой на Vercel
+## 6. Авторизация пользователей (3 канала, одна база)
+
+Реализована в `lib/auth/*`, `lib/bot/*`, `pages/api/auth/*`, `pages/api/bot/*`,
+`lib/useAuth.js` и `components/AuthGate.js`.
+
+### Канал 1 — Telegram Mini App
+
+Клиент передаёт подписанный `Telegram.WebApp.initData` в заголовке
+`X-Telegram-Init-Data` на `POST /api/auth/telegram`. Подпись проверяется по
+официальной схеме Telegram (`lib/auth/validateInitData.js`):
+
+```
+secret_key = HMAC_SHA256(key="WebAppData", message=TELEGRAM_BOT_TOKEN)
+hash       = HMAC_SHA256(key=secret_key,   message=data_check_string)
+```
+
+`data_check_string` — все пары `key=value` из `initData` (кроме `hash`),
+отсортированные по ключу и соединённые `\n`. Данные считаются просроченными
+через 24 часа (`auth_date`). При успехе пользователь создаётся/обновляется
+в таблице `users` (`upsertUserByTelegramId`) и выдаётся сессионная cookie.
+
+### Канал 2 — MAX Mini App
+
+Полностью аналогично, но заголовок `X-Max-Init-Data`, эндпоинт
+`POST /api/auth/max`, секрет — `MAX_BOT_TOKEN`. MAX использует идентичный
+протокол подписи, поэтому обе платформы используют одну и ту же функцию
+`validateInitData()`.
+
+> **Допущение, которое стоит проверить:** точный SDK-глобал MAX Mini Apps и
+> формат вебхука бота в официальной документации на момент написания не
+> зафиксированы. Код предполагает `window.WebApp.initData` на клиенте
+> (`lib/platform.js`) и Telegram-подобный Bot API на сервере
+> (`lib/bot/maxApi.js`, `MAX_BOT_API_BASE`, по умолчанию `https://botapi.max.ru`).
+> Поправьте эти два места под актуальную документацию MAX перед продакшеном.
+
+### Канал 3 — обычный браузер (код в боте)
+
+1. `POST /api/auth/code/request` создаёт 6-значный код и случайный
+   `pollToken` (известен только этому браузеру), код живёт 10 минут
+   (таблица `auth_codes`).
+2. Пользователь отправляет код боту (Telegram или MAX — любому из двух).
+3. Вебхук бота (`pages/api/bot/telegram-webhook.js` /
+   `pages/api/bot/max-webhook.js` → общая логика в
+   `lib/bot/handleIncomingMessage.js`) находит код, привязывает его к
+   `telegram_id`/`max_id` отправителя, создаёт/обновляет пользователя и
+   помечает код как `claimed`.
+4. Браузер каждые 3 секунды опрашивает `GET /api/auth/code/poll?pollToken=...`
+   (`lib/useAuth.js`). Как только код помечен `claimed`, сервер выдаёт
+   сессионную cookie и возвращает пользователя.
+
+Тот же бот, приняв контакт (`request_contact`), подтверждает телефон
+(`phone_confirmed = true`), а обычным текстовым сообщением «Имя Фамилия»
+— сохраняет имя и фамилию.
+
+### Сессия
+
+`lib/auth/session.js` — подписанная cookie `bb_session`
+(`HttpOnly; Secure; SameSite=Lax`), срок жизни 30 дней. Секрет —
+`AUTH_SESSION_SECRET`. Это отдельная сессия от `/admin`-панели, у которой
+свой пароль и cookie `bb_admin_session`.
+
+### Уровень доступа requireActiveUser
+
+`lib/auth/requireActiveUser.js` определяет, может ли пользователь
+записываться на услугу — гейт применён к `POST /api/appointments/create`
+(`lib/auth/getActiveUserStatus`):
+
+- пользователь должен быть авторизован;
+- телефон должен быть подтверждён через бота (`phone_confirmed`);
+- должны быть указаны имя и фамилия;
+- забаненный администратором пользователь (`is_banned`) всегда получает 403.
+
+Пользователи, чей Telegram/MAX id перечислен в `ADMIN_IDS` (через запятую),
+освобождены от всех этих ограничений, кроме бана.
+
+На фронтенде (`components/AuthGate.js`, подключён в `pages/index.js` на шаге
+«Контакты») показывается соответствующий экран вместо формы записи, пока
+условия не выполнены: вход через код, подтверждение телефона или указание
+имени.
+
+## 7. Деплой на Vercel
 
 1. Запушьте репозиторий на GitHub.
 2. На [vercel.com](https://vercel.com) → **Add New Project** → выберите репозиторий.
@@ -125,7 +242,7 @@ Barber/
 4. Нажмите **Deploy**. Готово — приложение доступно и как обычный сайт,
    и как Telegram Web App / VK Mini App (по тому же URL).
 
-## 7. Локальный запуск
+## 8. Локальный запуск
 
 ```bash
 npm install
@@ -136,7 +253,7 @@ npm run dev
 Откройте `http://localhost:3000` — клиентская запись, и
 `http://localhost:3000/admin` — админ-панель (пароль из `ADMIN_PASSWORD`).
 
-## 8. Админ-панель
+## 9. Админ-панель
 
 - Вход по паролю (`ADMIN_PASSWORD`), сессия хранится в подписанном
   HttpOnly cookie на 12 часов.

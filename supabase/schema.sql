@@ -24,17 +24,54 @@ create table if not exists masters (
   created_at timestamptz not null default now()
 );
 
+-- ========== USERS (authenticated via Telegram / MAX / code login) ==========
+create table if not exists users (
+  id uuid primary key default gen_random_uuid(),
+  telegram_id bigint unique,
+  max_id bigint unique,
+  phone text,
+  phone_confirmed boolean not null default false,
+  first_name text,
+  last_name text,
+  is_banned boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint users_have_an_identity check (telegram_id is not null or max_id is not null)
+);
+
+create index if not exists idx_users_telegram_id on users (telegram_id);
+create index if not exists idx_users_max_id on users (max_id);
+
+-- ========== AUTH CODES (browser "enter code in the bot" login) ==========
+create table if not exists auth_codes (
+  id uuid primary key default gen_random_uuid(),
+  code text not null,
+  poll_token text not null unique,
+  status text not null default 'pending' check (status in ('pending', 'claimed', 'expired')),
+  telegram_id bigint,
+  max_id bigint,
+  user_id uuid references users(id),
+  expires_at timestamptz not null,
+  created_at timestamptz not null default now()
+);
+
+-- The bot looks up a still-pending code by its 6-digit value.
+create index if not exists idx_auth_codes_pending_code
+  on auth_codes (code)
+  where (status = 'pending');
+
 -- ========== APPOINTMENTS ==========
 create table if not exists appointments (
   id uuid primary key default gen_random_uuid(),
   master_id uuid not null references masters(id) on delete restrict,
   service_id uuid not null references services(id) on delete restrict,
+  user_id uuid references users(id),
   client_name text not null,
   client_phone text not null,
   appointment_date date not null,       -- e.g. 2026-09-15
   appointment_time time not null,       -- e.g. 08:00:00
   status text not null default 'confirmed' check (status in ('confirmed', 'cancelled')),
-  source text default 'web',            -- 'telegram' | 'vk' | 'web'
+  source text default 'web',            -- 'telegram' | 'max' | 'web'
   created_at timestamptz not null default now()
 );
 
@@ -52,6 +89,8 @@ create index if not exists idx_appointments_date_master
 alter table services enable row level security;
 alter table masters enable row level security;
 alter table appointments enable row level security;
+alter table users enable row level security;
+alter table auth_codes enable row level security;
 
 -- Allow public (anon) read-only access to services & masters so the
 -- client can optionally fetch them directly if desired. Appointments are

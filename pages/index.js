@@ -5,7 +5,9 @@ import MasterSelect from '../components/MasterSelect';
 import Calendar from '../components/Calendar';
 import TimeSlotGrid from '../components/TimeSlotGrid';
 import BookingForm from '../components/BookingForm';
+import AuthGate from '../components/AuthGate';
 import { initPlatform, hapticSuccess } from '../lib/platform';
+import { useAuth } from '../lib/useAuth';
 
 const STEPS = [
   { key: 'service', label: 'Услуга' },
@@ -29,6 +31,8 @@ export default function Home() {
 
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null); // { ok: true } | { ok: false, error }
+
+  const { user, codeState, requestLoginCode } = useAuth();
 
   useEffect(() => {
     const p = initPlatform();
@@ -158,17 +162,21 @@ export default function Home() {
 
         {step === 3 && (
           <div>
-            <BookingForm
-              submitting={submitting}
-              onSubmit={handleBookingSubmit}
-              summary={{
-                serviceName: service?.name,
-                masterName: master?.name,
-                date,
-                time,
-                price: service?.price,
-              }}
-            />
+            {user?.active ? (
+              <BookingForm
+                submitting={submitting}
+                onSubmit={handleBookingSubmit}
+                summary={{
+                  serviceName: service?.name,
+                  masterName: master?.name,
+                  date,
+                  time,
+                  price: service?.price,
+                }}
+              />
+            ) : (
+              <AuthGate user={user} codeState={codeState} onRequestCode={requestLoginCode} />
+            )}
             {result && !result.ok && (
               <div className="mt-3 text-red-400 text-sm text-center">{result.error}</div>
             )}
