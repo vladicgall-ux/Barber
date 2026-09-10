@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import ServiceList from '../components/ServiceList';
 import MasterSelect from '../components/MasterSelect';
 import Calendar from '../components/Calendar';
@@ -181,9 +182,20 @@ export default function Home() {
 function Shell({ children }) {
   return (
     <div className="min-h-screen bg-graphite pb-10">
-      <header className="px-5 pt-8 pb-6 text-center border-b border-white/5">
-        <h1 className="text-2xl font-extrabold tracking-wide">BLACK BEARD</h1>
-        <p className="text-white/40 text-sm mt-1">Барбершоп · Кунашак</p>
+      <header className="relative h-56 sm:h-64 overflow-hidden border-b border-white/5">
+        <Image
+          src="/images/hero.png"
+          alt="BLACK BEARD"
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover object-top opacity-80"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-graphite via-graphite/70 to-graphite/10" />
+        <div className="relative h-full flex flex-col items-center justify-end pb-5 text-center">
+          <h1 className="text-2xl font-extrabold tracking-wide drop-shadow-lg">BLACK BEARD</h1>
+          <p className="text-white/60 text-sm mt-1">Барбершоп · Кунашак</p>
+        </div>
       </header>
       <main className="px-4 pt-5 max-w-md mx-auto">{children}</main>
     </div>
