@@ -117,7 +117,7 @@ insert into services (name, price, duration_minutes, image_url, sort_order) valu
   ('Hair tattoo', 300, 20, null, 7)
 on conflict do nothing;
 
-insert into masters (name, sort_order) values
-  ('Вадим', 1),
-  ('Марсель', 2)
+insert into masters (name, avatar_url, sort_order) values
+  ('Вадим', '/images/masters/vadim.png', 1),
+  ('Марсель', '/images/masters/marsel.png', 2)
 on conflict do nothing;
