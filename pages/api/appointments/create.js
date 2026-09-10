@@ -3,6 +3,7 @@ import { notifyTelegramAdmin, notifyMasterAdmins, notifyVkCommunity } from '../.
 import { getSessionUser } from '../../../lib/auth/session';
 import { getActiveUserStatus } from '../../../lib/auth/requireActiveUser';
 import { getShopNow } from '../../../lib/timeSlots';
+import { isWholeDayClosed, isTimeClosed } from '../../../lib/closures';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -39,12 +40,15 @@ export default async function handler(req, res) {
 
   const { data: closures, error: closuresErr } = await supabaseAdmin
     .from('closed_dates')
-    .select('id')
+    .select('start_time, end_time')
     .eq('date', date)
     .or(`master_id.is.null,master_id.eq.${masterId}`);
   if (closuresErr) return res.status(500).json({ error: closuresErr.message });
-  if (closures && closures.length > 0) {
+  if (isWholeDayClosed(closures)) {
     return res.status(400).json({ error: 'В этот день барбершоп не работает. Пожалуйста, выберите другую дату.' });
+  }
+  if (isTimeClosed(time, closures)) {
+    return res.status(400).json({ error: 'Это время закрыто для записи. Пожалуйста, выберите другое.' });
   }
 
   // Fetch master & service names for the notification.

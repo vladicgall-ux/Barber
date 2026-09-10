@@ -89,23 +89,21 @@ create unique index if not exists uniq_active_slot
 create index if not exists idx_appointments_date_master
   on appointments (appointment_date, master_id);
 
--- ========== CLOSED DATES (admin-set days off) ==========
+-- ========== CLOSED DATES (admin-set days off / partial-day closures) ==========
 create table if not exists closed_dates (
   id uuid primary key default gen_random_uuid(),
   master_id uuid references masters(id) on delete cascade, -- null = whole shop closed
   date date not null,
+  start_time time,  -- null (with end_time also null) = whole day closed
+  end_time time,    -- otherwise blocks [start_time, end_time) only
   reason text,
   created_at timestamptz not null default now()
 );
 
--- One shop-wide closure per date, one per-master closure per (date, master).
-create unique index if not exists uniq_closed_date_shop
-  on closed_dates (date)
-  where (master_id is null);
-
-create unique index if not exists uniq_closed_date_master
-  on closed_dates (date, master_id)
-  where (master_id is not null);
+-- Multiple closures (different time ranges and/or different masters) can
+-- coexist on the same date, so there's no per-date uniqueness constraint —
+-- admins add one row per closed range/day and remove them individually.
+create index if not exists idx_closed_dates_date on closed_dates (date);
 
 -- ========== ROW LEVEL SECURITY ==========
 -- The app talks to Supabase only from server-side API routes using the

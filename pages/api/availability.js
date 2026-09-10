@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '../../lib/supabaseAdmin';
 import { ALL_SLOTS, getShopNow } from '../../lib/timeSlots';
+import { isWholeDayClosed, isTimeClosed } from '../../lib/closures';
 
 // GET /api/availability?masterId=...&date=YYYY-MM-DD
 // Returns all slots + which ones are already booked (confirmed) for that master/date.
@@ -20,13 +21,17 @@ export default async function handler(req, res) {
       .eq('master_id', masterId)
       .eq('appointment_date', date)
       .eq('status', 'confirmed'),
-    supabaseAdmin.from('closed_dates').select('master_id').eq('date', date).or(`master_id.is.null,master_id.eq.${masterId}`),
+    supabaseAdmin
+      .from('closed_dates')
+      .select('master_id, start_time, end_time')
+      .eq('date', date)
+      .or(`master_id.is.null,master_id.eq.${masterId}`),
   ]);
 
   if (error) return res.status(500).json({ error: error.message });
   if (closuresErr) return res.status(500).json({ error: closuresErr.message });
 
-  if (closures && closures.length > 0) {
+  if (isWholeDayClosed(closures)) {
     return res.status(200).json({ slots: ALL_SLOTS.map((time) => ({ time, available: false })), closed: true });
   }
 
@@ -39,7 +44,7 @@ export default async function handler(req, res) {
 
   const slots = ALL_SLOTS.map((time) => ({
     time,
-    available: !bookedTimes.has(time) && (!isToday || time > shopNow.time),
+    available: !bookedTimes.has(time) && (!isToday || time > shopNow.time) && !isTimeClosed(time, closures),
   }));
 
   return res.status(200).json({ slots, closed: false });
