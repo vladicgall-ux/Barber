@@ -6,6 +6,7 @@ import {
   clearTelegramInlineKeyboard,
 } from '../../../lib/bot/telegramApi';
 import { confirmAppointment } from '../../../lib/appointments/confirmAppointment';
+import { cancelAppointment } from '../../../lib/appointments/cancelAppointment';
 import { isAdminId } from '../../../lib/auth/requireActiveUser';
 
 // POST /api/bot/telegram-webhook
@@ -57,28 +58,33 @@ export default async function handler(req, res) {
   return res.status(200).json({ ok: true });
 }
 
-// Handles the "✅ Подтвердить" inline button on the admin notification.
+// Handles the "✅ Подтвердить" / "❌ Отменить" inline buttons on the admin notification.
+const CALLBACK_ACTIONS = {
+  confirm: { run: confirmAppointment, successText: 'Запись подтверждена ✅' },
+  cancel: { run: cancelAppointment, successText: 'Запись отменена ❌' },
+};
+
 async function handleCallbackQuery(callback) {
   const data = callback.data || '';
   const chatId = callback.message?.chat?.id;
   const messageId = callback.message?.message_id;
   const fromId = callback.from?.id;
 
-  if (!data.startsWith('confirm:')) {
+  const [prefix, appointmentId] = data.split(':');
+  const action = CALLBACK_ACTIONS[prefix];
+  if (!action || !appointmentId) {
     return answerTelegramCallback(callback.id);
   }
 
   if (!isAdminId(fromId)) {
-    return answerTelegramCallback(callback.id, 'Только администратор может подтверждать записи');
+    return answerTelegramCallback(callback.id, 'Только администратор может управлять записями');
   }
-
-  const appointmentId = data.slice('confirm:'.length);
 
   let appointment;
   try {
-    appointment = await confirmAppointment(appointmentId);
+    appointment = await action.run(appointmentId);
   } catch (e) {
-    console.error('confirmAppointment error', e);
+    console.error(`${prefix}Appointment error`, e);
     return answerTelegramCallback(callback.id, 'Ошибка. Попробуйте ещё раз.');
   }
 
@@ -86,7 +92,7 @@ async function handleCallbackQuery(callback) {
     return answerTelegramCallback(callback.id, 'Запись не найдена или уже отменена');
   }
 
-  await answerTelegramCallback(callback.id, 'Запись подтверждена ✅');
+  await answerTelegramCallback(callback.id, action.successText);
   if (chatId && messageId) {
     await clearTelegramInlineKeyboard(chatId, messageId);
   }
