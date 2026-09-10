@@ -2,7 +2,7 @@ import Image from 'next/image';
 
 export default function ServiceList({ services, selectedId, onSelect }) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
       {services.map((service) => {
         const active = service.id === selectedId;
         return (
@@ -28,9 +28,9 @@ export default function ServiceList({ services, selectedId, onSelect }) {
               </div>
             )}
             <div className="min-w-0 flex-1">
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-medium text-white truncate">{service.name}</span>
-                <span className="text-silver font-semibold whitespace-nowrap">{service.price}₽</span>
+              <div className="flex items-start justify-between gap-2">
+                <span className="font-medium text-white">{service.name}</span>
+                <span className="text-silver font-semibold whitespace-nowrap shrink-0">{service.price}₽</span>
               </div>
               <div className="text-xs text-white/40 mt-1">{service.duration_minutes} мин</div>
             </div>

@@ -212,32 +212,34 @@ export default function Home() {
 function Shell({ children, isAdmin, onOpenAdmin }) {
   return (
     <div className="min-h-screen bg-graphite pb-10">
-      <header className="relative h-56 sm:h-64 overflow-hidden border-b border-white/5">
-        <Image
-          src="/images/hero.png"
-          alt="BLACK BEARD"
-          fill
-          priority
-          sizes="100vw"
-          className="object-cover object-top opacity-80"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-graphite via-graphite/70 to-graphite/10" />
-        <div className="relative h-full flex flex-col items-center justify-end pb-5 text-center">
-          <h1 className="text-2xl font-extrabold tracking-wide drop-shadow-lg">BLACK BEARD</h1>
-          <p className="text-white/60 text-sm mt-1">Барбершоп · Кунашак</p>
-        </div>
+      <div className="max-w-md sm:max-w-xl lg:max-w-3xl mx-auto sm:pt-6">
+        <header className="relative h-56 sm:h-64 overflow-hidden border-b border-white/5 sm:rounded-2xl sm:border">
+          <Image
+            src="/images/hero.png"
+            alt="BLACK BEARD"
+            fill
+            priority
+            sizes="(min-width: 1024px) 768px, (min-width: 640px) 576px, 100vw"
+            className="object-cover object-top opacity-80"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-graphite via-graphite/70 to-graphite/10" />
+          <div className="relative h-full flex flex-col items-center justify-end pb-5 text-center">
+            <h1 className="text-2xl font-extrabold tracking-wide drop-shadow-lg">BLACK BEARD</h1>
+            <p className="text-white/60 text-sm mt-1">Барбершоп · Кунашак</p>
+          </div>
 
-        {isAdmin && (
-          <button
-            type="button"
-            onClick={onOpenAdmin}
-            className="absolute top-4 right-4 bg-black/40 backdrop-blur border border-white/20 rounded-lg px-3 py-1.5 text-xs font-medium text-white hover:bg-black/60"
-          >
-            Админ-панель
-          </button>
-        )}
-      </header>
-      <main className="px-4 pt-5 max-w-md mx-auto">{children}</main>
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={onOpenAdmin}
+              className="absolute top-4 right-4 bg-black/40 backdrop-blur border border-white/20 rounded-lg px-3 py-1.5 text-xs font-medium text-white hover:bg-black/60"
+            >
+              Админ-панель
+            </button>
+          )}
+        </header>
+        <main className="px-4 pt-5">{children}</main>
+      </div>
     </div>
   );
 }
