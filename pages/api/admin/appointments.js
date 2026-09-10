@@ -12,6 +12,9 @@ export default async function handler(req, res) {
   }
 
   const { date, masterId } = req.query;
+  // A master-scoped admin only ever sees their own master's appointments,
+  // regardless of what masterId the client sends.
+  const effectiveMasterId = admin.admin_master_id || masterId;
 
   let query = supabaseAdmin
     .from('appointments')
@@ -24,7 +27,7 @@ export default async function handler(req, res) {
     .order('appointment_time', { ascending: true });
 
   if (date) query = query.eq('appointment_date', date);
-  if (masterId) query = query.eq('master_id', masterId);
+  if (effectiveMasterId) query = query.eq('master_id', effectiveMasterId);
 
   const { data, error } = await query;
   if (error) return res.status(500).json({ error: error.message });

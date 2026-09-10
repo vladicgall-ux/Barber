@@ -4,6 +4,9 @@ import { getSessionUser } from '../../../lib/auth/session';
 import { getActiveUserStatus } from '../../../lib/auth/requireActiveUser';
 import { getShopNow } from '../../../lib/timeSlots';
 import { isWholeDayClosed, isTimeClosed } from '../../../lib/closures';
+import { checkRateLimit } from '../../../lib/rateLimit';
+
+const ALLOWED_SOURCES = ['telegram', 'max', 'vk', 'web'];
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -16,6 +19,11 @@ export default async function handler(req, res) {
     return res.status(403).json({ error: activeErrorMessage(reason), reason });
   }
 
+  const { allowed } = await checkRateLimit(`booking_create:${user.id}`, 8, 10 * 60 * 1000);
+  if (!allowed) {
+    return res.status(429).json({ error: 'Слишком много попыток записи подряд. Подождите немного.' });
+  }
+
   const { masterId, serviceId, date, time, clientName, clientPhone, source } = req.body || {};
 
   if (!masterId || !serviceId || !date || !time || !clientName || !clientPhone) {
@@ -23,6 +31,9 @@ export default async function handler(req, res) {
   }
   if (!/^[0-9a-f-]{36}$/i.test(masterId)) {
     return res.status(400).json({ error: 'Некорректный мастер' });
+  }
+  if (source !== undefined && !ALLOWED_SOURCES.includes(source)) {
+    return res.status(400).json({ error: 'Некорректный источник записи' });
   }
 
   if (String(clientName).trim().length < 2) {

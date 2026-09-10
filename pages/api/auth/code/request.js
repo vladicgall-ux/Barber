@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '../../../../lib/supabaseAdmin';
 import { generateSixDigitCode, generatePollToken, CODE_TTL_MS } from '../../../../lib/auth/codes';
+import { checkRateLimit, getClientIp } from '../../../../lib/rateLimit';
 
 // POST /api/auth/code/request
 // Issues a fresh 6-digit code the browser shows to the user, plus a
@@ -9,6 +10,12 @@ import { generateSixDigitCode, generatePollToken, CODE_TTL_MS } from '../../../.
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const ip = getClientIp(req);
+  const { allowed } = await checkRateLimit(`code_request:${ip}`, 5, 10 * 60 * 1000);
+  if (!allowed) {
+    return res.status(429).json({ error: 'Слишком много попыток. Попробуйте через несколько минут.' });
   }
 
   const code = generateSixDigitCode();

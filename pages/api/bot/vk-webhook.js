@@ -1,7 +1,7 @@
 import { confirmAppointment } from '../../../lib/appointments/confirmAppointment';
 import { cancelAppointment } from '../../../lib/appointments/cancelAppointment';
 import { answerVkMessageEvent, clearVkMessageKeyboard } from '../../../lib/notify';
-import { isAdminByPlatformId } from '../../../lib/auth/requireActiveUser';
+import { getAdminScope } from '../../../lib/auth/requireActiveUser';
 import { makeVkSender } from '../../../lib/bot/vkApi';
 import { handleIncomingMessage } from '../../../lib/bot/handleIncomingMessage';
 
@@ -26,8 +26,15 @@ export default async function handler(req, res) {
   }
 
   const expectedSecret = process.env.VK_CALLBACK_SECRET;
-  if (expectedSecret && body.secret !== expectedSecret) {
-    // VK still needs a 200 "ok" even when we ignore the event, or it retries forever.
+  if (!expectedSecret) {
+    // Never silently accept unauthenticated events in production — but VK
+    // still needs a 200 "ok" response even when we're ignoring everything,
+    // or it retries the same event forever.
+    if (process.env.NODE_ENV === 'production') {
+      console.error('VK_CALLBACK_SECRET is not set in production — ignoring all events');
+      return res.status(200).end('ok');
+    }
+  } else if (body.secret !== expectedSecret) {
     return res.status(200).end('ok');
   }
 
@@ -85,13 +92,14 @@ async function handleMessageEvent(object) {
     return answerVkMessageEvent({ eventId, userId, peerId, text: '' });
   }
 
-  if (!(await isAdminByPlatformId(userId))) {
+  const { isAdmin, adminMasterId } = await getAdminScope(userId);
+  if (!isAdmin) {
     return answerVkMessageEvent({ eventId, userId, peerId, text: 'Только администратор может управлять записями' });
   }
 
   let appointment;
   try {
-    appointment = await action.run(payload.id);
+    appointment = await action.run(payload.id, adminMasterId);
   } catch (e) {
     console.error(`${payload.action}Appointment error`, e);
     return answerVkMessageEvent({ eventId, userId, peerId, text: 'Ошибка. Попробуйте ещё раз.' });

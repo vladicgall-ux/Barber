@@ -10,7 +10,12 @@ export default async function handler(req, res) {
   }
 
   const expectedSecret = process.env.MAX_WEBHOOK_SECRET;
-  if (expectedSecret && req.query.secret !== expectedSecret) {
+  if (!expectedSecret) {
+    if (process.env.NODE_ENV === 'production') {
+      console.error('MAX_WEBHOOK_SECRET is not set in production');
+      return res.status(500).json({ error: 'Webhook not configured' });
+    }
+  } else if (req.query.secret !== expectedSecret) {
     return res.status(401).json({ error: 'Invalid webhook secret' });
   }
 

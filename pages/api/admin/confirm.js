@@ -18,7 +18,7 @@ export default async function handler(req, res) {
 
   let appointment;
   try {
-    appointment = await confirmAppointment(appointmentId);
+    appointment = await confirmAppointment(appointmentId, admin.admin_master_id || null);
   } catch (e) {
     return res.status(500).json({ error: e.message });
   }

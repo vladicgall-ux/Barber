@@ -7,7 +7,7 @@ import {
 } from '../../../lib/bot/telegramApi';
 import { confirmAppointment } from '../../../lib/appointments/confirmAppointment';
 import { cancelAppointment } from '../../../lib/appointments/cancelAppointment';
-import { isAdminByPlatformId } from '../../../lib/auth/requireActiveUser';
+import { getAdminScope } from '../../../lib/auth/requireActiveUser';
 
 // POST /api/bot/telegram-webhook
 // Set with: https://api.telegram.org/bot<TOKEN>/setWebhook
@@ -18,7 +18,14 @@ export default async function handler(req, res) {
   }
 
   const expectedSecret = process.env.TELEGRAM_WEBHOOK_SECRET;
-  if (expectedSecret) {
+  if (!expectedSecret) {
+    // Never silently accept unauthenticated webhook calls in production —
+    // an unset secret must fail closed, not skip the check.
+    if (process.env.NODE_ENV === 'production') {
+      console.error('TELEGRAM_WEBHOOK_SECRET is not set in production');
+      return res.status(500).json({ error: 'Webhook not configured' });
+    }
+  } else {
     const gotSecret = req.headers['x-telegram-bot-api-secret-token'];
     if (gotSecret !== expectedSecret) {
       return res.status(401).json({ error: 'Invalid webhook secret' });
@@ -76,13 +83,14 @@ async function handleCallbackQuery(callback) {
     return answerTelegramCallback(callback.id);
   }
 
-  if (!(await isAdminByPlatformId(fromId))) {
+  const { isAdmin, adminMasterId } = await getAdminScope(fromId);
+  if (!isAdmin) {
     return answerTelegramCallback(callback.id, 'Только администратор может управлять записями');
   }
 
   let appointment;
   try {
-    appointment = await action.run(appointmentId);
+    appointment = await action.run(appointmentId, adminMasterId);
   } catch (e) {
     console.error(`${prefix}Appointment error`, e);
     return answerTelegramCallback(callback.id, 'Ошибка. Попробуйте ещё раз.');
