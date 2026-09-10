@@ -76,8 +76,11 @@ export default async function handler(req, res) {
     time: String(appointment.appointment_time).slice(0, 5),
   };
 
-  // Fire-and-forget notifications; don't block the response on them failing.
-  Promise.all([notifyTelegramAdmin(payload), notifyVkCommunity(payload)]).catch((e) =>
+  // Vercel serverless functions can freeze right after the response is
+  // sent, so a true "fire-and-forget" background call may never finish —
+  // await the notifications (each already catches its own errors) before
+  // responding.
+  await Promise.all([notifyTelegramAdmin(payload), notifyVkCommunity(payload)]).catch((e) =>
     console.error('Notification error', e)
   );
 
